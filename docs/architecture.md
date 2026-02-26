@@ -29,7 +29,7 @@ Sources: [hexdocs-mcp changelog](https://github.com/bradleygolden/hexdocs-mcp/bl
 
 - **In-process ONNX model** via `@huggingface/transformers` — the embedding model loads directly into the Node.js/Bun process. No Ollama, no API calls, no separate service to manage. Anchor uses `all-MiniLM-L6-v2`; we upgrade to `snowflake-arctic-embed-xs` (same size, +20% retrieval quality — see Phase 4).
 - **Plain SQLite with BLOB storage** — embeddings stored as `Float32Array` buffers. No vector extensions. Cosine similarity computed in application code over a linear scan.
-- **Hybrid search** — keyword (SQL LIKE) + semantic (cosine similarity) with score fusion, covering both exact class names and conceptual queries.
+- **Hybrid search** — keyword (FTS5) + semantic (cosine similarity) with score fusion, covering both exact class names and conceptual queries.
 
 At ~800 chunks, linear cosine similarity over 384-dim vectors completes in single-digit milliseconds. The simplicity tradeoff is correct for our scale.
 
@@ -469,7 +469,7 @@ tailwindcss-docs-mcp/
 └── LICENSE
 ```
 
-**Estimated codebase**: ~1,000-1,500 lines of TypeScript.
+**Estimated codebase**: ~2,500 lines of TypeScript.
 
 ---
 
@@ -803,7 +803,9 @@ test/
 ├── integration/
 │ ├── search-quality.test.ts
 │ ├── hybrid-search.test.ts
-│ └── incremental.test.ts
+│ ├── incremental.test.ts
+│ ├── server.test.ts          # MCP tool names, Zod schemas, response format
+│ └── embedder-smoke.test.ts  # Real ONNX model (gated by RUN_ONNX_TESTS)
 ├── tools/
 │ └── tools.test.ts
 └── setup.ts # Shared fixtures, model mock, temp DB helpers

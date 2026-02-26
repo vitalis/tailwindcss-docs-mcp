@@ -88,7 +88,7 @@ export async function hybridSearch(
   const fused = fuseResults(semantic, keyword, limit);
 
   // Normalize fused scores to 0-1 range (top result = 1.0)
-  const maxScore = fused[0]?.fusedScore || 1;
+  const maxScore = fused[0]?.fusedScore ?? 1;
 
   return fused.map((scored) => {
     const doc = db.getDocById(scored.chunk.doc_id);

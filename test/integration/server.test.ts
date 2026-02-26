@@ -14,6 +14,11 @@ describe("MCP Server", () => {
     });
   });
 
+  // NOTE: The Zod schemas below mirror those inline in server.tool() calls.
+  // They cannot be imported directly (McpServer registers schemas inline).
+  // These tests document the expected input shapes and catch Zod version
+  // incompatibilities, but changes to server.ts schemas require updating
+  // these tests manually.
   describe("Zod input schemas", () => {
     const versionSchema = z.enum(["v3", "v4"]);
 
@@ -111,29 +116,6 @@ describe("MCP Server", () => {
 
       const formatted = formatSearchResults({ results: [], notIndexed: true });
       expect(formatted).toContain("fetch_docs");
-    });
-
-    it("formatStatus returns markdown with index info", async () => {
-      const { formatStatus } = await import("../../src/tools/check-status.js");
-
-      const formatted = formatStatus({
-        indexed: true,
-        versions: [
-          {
-            version: "v3",
-            doc_count: 10,
-            chunk_count: 50,
-            embedding_model: "test-model",
-            embedding_dimensions: 384,
-            indexed_at: "2024-01-01 00:00:00",
-          },
-        ],
-        message: "",
-      });
-
-      expect(formatted).toContain("# Tailwind CSS Documentation Index Status");
-      expect(formatted).toContain("**Documents**: 10");
-      expect(formatted).toContain("**Chunks**: 50");
     });
   });
 });

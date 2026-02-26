@@ -47,9 +47,6 @@ export interface IndexStatus {
  * The database interface for storing and retrieving documentation.
  */
 export interface Database {
-  /** Initialize the database: create tables, indexes, and FTS */
-  initialize(): void;
-
   /** Insert or update a document */
   upsertDoc(doc: CleanDocument): number;
 
@@ -304,11 +301,6 @@ export async function createDatabase(config: Config): Promise<Database> {
   db.exec(FTS_TRIGGERS);
 
   return {
-    initialize(): void {
-      // Schema already created in factory — this is a no-op.
-      // Kept for interface compatibility (e.g., re-initialization scenarios).
-    },
-
     upsertDoc(doc: CleanDocument): number {
       db.queryRun(
         `INSERT INTO docs (slug, title, description, url, version, fetched_at)
