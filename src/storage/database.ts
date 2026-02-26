@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import type { Chunk } from "../pipeline/chunker.js";
 import type { CleanDocument } from "../pipeline/parser.js";
 import type { Config, TailwindVersion } from "../utils/config.js";
@@ -78,6 +80,12 @@ export interface Database {
   /** Get index status for a version */
   getIndexStatus(version?: TailwindVersion): IndexStatus[];
 
+  /** Get a document by ID */
+  getDocById(id: number): DocRow | undefined;
+
+  /** Search chunks using FTS5 full-text search, ordered by BM25 relevance */
+  searchFts(query: string, version: TailwindVersion, limit: number): ChunkRow[];
+
   /** Close the database connection */
   close(): void;
 }
@@ -130,18 +138,333 @@ CREATE TABLE IF NOT EXISTS index_status (
 ` as const;
 
 /**
+ * FTS5 triggers to keep chunks_fts in sync with the chunks table.
+ *
+ * These triggers fire on INSERT, DELETE, and UPDATE on the chunks table
+ * and mirror changes into the FTS5 content-sync'd virtual table.
+ */
+const FTS_TRIGGERS = `
+CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+  INSERT INTO chunks_fts(rowid, heading, content) VALUES (new.id, new.heading, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+  INSERT INTO chunks_fts(chunks_fts, rowid, heading, content) VALUES ('delete', old.id, old.heading, old.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+  INSERT INTO chunks_fts(chunks_fts, rowid, heading, content) VALUES ('delete', old.id, old.heading, old.content);
+  INSERT INTO chunks_fts(rowid, heading, content) VALUES (new.id, new.heading, new.content);
+END;
+` as const;
+
+/**
+ * Thin abstraction over bun:sqlite and better-sqlite3 to normalize their APIs.
+ *
+ * bun:sqlite uses `db.query(sql)` returning a Statement with `.get()`, `.all()`, `.run()`.
+ * better-sqlite3 uses `db.prepare(sql)` returning a Statement with `.get()`, `.all()`, `.run()`.
+ * Both are synchronous. The `run()` return value differs:
+ * - bun:sqlite: `undefined`
+ * - better-sqlite3: `{ changes: number, lastInsertRowid: number | bigint }`
+ *
+ * We wrap these differences in a `SqliteDb` interface used exclusively
+ * within `createDatabase`.
+ */
+interface StatementResult {
+  changes: number;
+  lastInsertRowid: number;
+}
+
+interface SqliteDb {
+  exec(sql: string): void;
+  queryGet<T>(sql: string, ...params: unknown[]): T | undefined;
+  queryAll<T>(sql: string, ...params: unknown[]): T[];
+  queryRun(sql: string, ...params: unknown[]): StatementResult;
+  close(): void;
+}
+
+/**
+ * Open a SQLite database using bun:sqlite, wrapping it in SqliteDb.
+ */
+async function openBunSqlite(dbPath: string): Promise<SqliteDb> {
+  // biome-ignore lint/suspicious/noExplicitAny: bun:sqlite types are not available at compile time in Node
+  const mod = (await import("bun:sqlite")) as any;
+  const BunDatabase = mod.default ?? mod.Database;
+  const db = new BunDatabase(dbPath);
+
+  // Enable WAL mode for better concurrent read performance
+  db.exec("PRAGMA journal_mode=WAL");
+
+  return {
+    exec(sql: string): void {
+      db.exec(sql);
+    },
+    queryGet<T>(sql: string, ...params: unknown[]): T | undefined {
+      const result = db.query(sql).get(...params);
+      // bun:sqlite returns null for no match; normalize to undefined
+      return (result ?? undefined) as T | undefined;
+    },
+    queryAll<T>(sql: string, ...params: unknown[]): T[] {
+      return db.query(sql).all(...params) as T[];
+    },
+    queryRun(sql: string, ...params: unknown[]): StatementResult {
+      db.query(sql).run(...params);
+      // bun:sqlite doesn't return changes from .run(), so we query it
+      const info = db
+        .query("SELECT changes() as changes, last_insert_rowid() as lastInsertRowid")
+        .get() as {
+        changes: number;
+        lastInsertRowid: number;
+      };
+      return info;
+    },
+    close(): void {
+      db.close();
+    },
+  };
+}
+
+/**
+ * Open a SQLite database using better-sqlite3, wrapping it in SqliteDb.
+ */
+async function openBetterSqlite3(dbPath: string): Promise<SqliteDb> {
+  const mod = await import("better-sqlite3");
+  const BetterSqlite3 = mod.default;
+  const db = new BetterSqlite3(dbPath);
+
+  // Enable WAL mode for better concurrent read performance
+  db.pragma("journal_mode=WAL");
+
+  return {
+    exec(sql: string): void {
+      db.exec(sql);
+    },
+    queryGet<T>(sql: string, ...params: unknown[]): T | undefined {
+      return db.prepare(sql).get(...params) as T | undefined;
+    },
+    queryAll<T>(sql: string, ...params: unknown[]): T[] {
+      return db.prepare(sql).all(...params) as T[];
+    },
+    queryRun(sql: string, ...params: unknown[]): StatementResult {
+      const result = db.prepare(sql).run(...params);
+      return {
+        changes: result.changes,
+        lastInsertRowid: Number(result.lastInsertRowid),
+      };
+    },
+    close(): void {
+      db.close();
+    },
+  };
+}
+
+/**
+ * Detect runtime and open the appropriate SQLite driver.
+ *
+ * Tries bun:sqlite first (zero-dependency when running under Bun),
+ * then falls back to better-sqlite3 (Node.js).
+ */
+async function openDatabase(dbPath: string): Promise<SqliteDb> {
+  try {
+    return await openBunSqlite(dbPath);
+  } catch {
+    return await openBetterSqlite3(dbPath);
+  }
+}
+
+/**
  * Create a database instance.
  *
  * Uses `bun:sqlite` when running under Bun, falls back to `better-sqlite3`
  * for Node.js. The runtime detection is automatic.
  */
 export async function createDatabase(config: Config): Promise<Database> {
-  // TODO: implement
-  // 1. Detect runtime (Bun vs Node.js)
-  // 2. Open or create the SQLite database at config.dbPath
-  // 3. Run migrations (create tables)
-  // 4. Return Database instance
-  throw new Error("Not implemented");
+  // Ensure the database directory exists (skip for in-memory databases)
+  if (config.dbPath !== ":memory:") {
+    mkdirSync(dirname(config.dbPath), { recursive: true });
+  }
+
+  const db = await openDatabase(config.dbPath);
+
+  // Run schema DDL and FTS triggers
+  db.exec(SCHEMA);
+  db.exec(FTS_TRIGGERS);
+
+  return {
+    initialize(): void {
+      // Schema already created in factory — this is a no-op.
+      // Kept for interface compatibility (e.g., re-initialization scenarios).
+    },
+
+    upsertDoc(doc: CleanDocument): number {
+      const result = db.queryRun(
+        `INSERT INTO docs (slug, title, description, url, version, fetched_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'))
+         ON CONFLICT(slug, version) DO UPDATE SET
+           title = excluded.title,
+           description = excluded.description,
+           url = excluded.url,
+           fetched_at = excluded.fetched_at`,
+        doc.slug,
+        doc.title,
+        doc.description,
+        doc.url,
+        doc.version,
+      );
+
+      // ON CONFLICT UPDATE does not change lastInsertRowid reliably,
+      // so always query the actual id by unique key.
+      const row = db.queryGet<{ id: number }>(
+        "SELECT id FROM docs WHERE slug = ? AND version = ?",
+        doc.slug,
+        doc.version,
+      );
+      if (!row) {
+        throw new Error(`Failed to upsert doc: ${doc.slug} (${doc.version})`);
+      }
+      return row.id;
+    },
+
+    upsertChunk(chunk: Chunk, docId: number, embedding: Float32Array | null): void {
+      const blob = embedding ? embeddingToBlob(embedding) : null;
+      db.queryRun(
+        `INSERT INTO chunks (doc_id, heading, content, content_hash, embedding, url, token_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(doc_id, heading, content_hash) DO UPDATE SET
+           content = excluded.content,
+           embedding = excluded.embedding,
+           url = excluded.url,
+           token_count = excluded.token_count`,
+        docId,
+        chunk.heading,
+        chunk.content,
+        chunk.id,
+        blob,
+        chunk.url,
+        chunk.tokenCount,
+      );
+    },
+
+    getDoc(slug: string, version: TailwindVersion): DocRow | undefined {
+      return db.queryGet<DocRow>(
+        "SELECT * FROM docs WHERE slug = ? AND version = ?",
+        slug,
+        version,
+      );
+    },
+
+    getChunksForDoc(docId: number): ChunkRow[] {
+      return db.queryAll<ChunkRow>("SELECT * FROM chunks WHERE doc_id = ?", docId);
+    },
+
+    getAllChunksWithEmbeddings(version: TailwindVersion): ChunkRow[] {
+      return db.queryAll<ChunkRow>(
+        `SELECT c.* FROM chunks c
+         JOIN docs d ON c.doc_id = d.id
+         WHERE d.version = ? AND c.embedding IS NOT NULL`,
+        version,
+      );
+    },
+
+    getChunkByHash(contentHash: string, docId: number): ChunkRow | undefined {
+      return db.queryGet<ChunkRow>(
+        "SELECT * FROM chunks WHERE content_hash = ? AND doc_id = ?",
+        contentHash,
+        docId,
+      );
+    },
+
+    deleteOrphanedChunks(docId: number, validHashes: Set<string>): number {
+      if (validHashes.size === 0) {
+        // Delete all chunks for this doc
+        const result = db.queryRun("DELETE FROM chunks WHERE doc_id = ?", docId);
+        return result.changes;
+      }
+
+      // Build parameterized IN clause for the valid hashes
+      const hashes = [...validHashes];
+      const placeholders = hashes.map(() => "?").join(", ");
+      const result = db.queryRun(
+        `DELETE FROM chunks WHERE doc_id = ? AND content_hash NOT IN (${placeholders})`,
+        docId,
+        ...hashes,
+      );
+      return result.changes;
+    },
+
+    deleteVersion(version: TailwindVersion): void {
+      // Delete chunks first (referencing docs), then docs
+      db.queryRun(
+        `DELETE FROM chunks WHERE doc_id IN (
+           SELECT id FROM docs WHERE version = ?
+         )`,
+        version,
+      );
+      db.queryRun("DELETE FROM docs WHERE version = ?", version);
+      db.queryRun("DELETE FROM index_status WHERE version = ?", version);
+    },
+
+    updateIndexStatus(version: TailwindVersion, model: string, dimensions: number): void {
+      const docCount = db.queryGet<{ count: number }>(
+        "SELECT COUNT(*) as count FROM docs WHERE version = ?",
+        version,
+      );
+      const chunkCount = db.queryGet<{ count: number }>(
+        "SELECT COUNT(*) as count FROM chunks WHERE doc_id IN (SELECT id FROM docs WHERE version = ?)",
+        version,
+      );
+
+      db.queryRun(
+        `INSERT INTO index_status (version, doc_count, chunk_count, embedding_model, embedding_dimensions, indexed_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now'))
+         ON CONFLICT(version) DO UPDATE SET
+           doc_count = excluded.doc_count,
+           chunk_count = excluded.chunk_count,
+           embedding_model = excluded.embedding_model,
+           embedding_dimensions = excluded.embedding_dimensions,
+           indexed_at = excluded.indexed_at`,
+        version,
+        docCount?.count ?? 0,
+        chunkCount?.count ?? 0,
+        model,
+        dimensions,
+      );
+    },
+
+    getIndexStatus(version?: TailwindVersion): IndexStatus[] {
+      if (version) {
+        return db.queryAll<IndexStatus>("SELECT * FROM index_status WHERE version = ?", version);
+      }
+      return db.queryAll<IndexStatus>("SELECT * FROM index_status");
+    },
+
+    getDocById(id: number): DocRow | undefined {
+      return db.queryGet<DocRow>("SELECT * FROM docs WHERE id = ?", id);
+    },
+
+    searchFts(query: string, version: TailwindVersion, limit: number): ChunkRow[] {
+      try {
+        return db.queryAll<ChunkRow>(
+          `SELECT c.* FROM chunks_fts f
+           JOIN chunks c ON c.id = f.rowid
+           JOIN docs d ON c.doc_id = d.id
+           WHERE chunks_fts MATCH ? AND d.version = ?
+           ORDER BY bm25(chunks_fts)
+           LIMIT ?`,
+          query,
+          version,
+          limit,
+        );
+      } catch {
+        // FTS5 syntax error (e.g., invalid query) — return empty
+        return [];
+      }
+    },
+
+    close(): void {
+      db.close();
+    },
+  };
 }
 
 /**

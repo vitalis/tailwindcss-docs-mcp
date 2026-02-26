@@ -1,7 +1,7 @@
 import type { Embedder } from "../pipeline/embedder.js";
 import type { TailwindVersion } from "../utils/config.js";
-import type { ChunkRow } from "./database.js";
-import type { Database } from "./database.js";
+import { cosineSimilarity } from "../utils/similarity.js";
+import { type ChunkRow, type Database, blobToEmbedding } from "./database.js";
 
 /**
  * A search result with score and metadata.
@@ -34,7 +34,7 @@ export interface SearchOptions {
 /**
  * Internal representation of a scored chunk during search.
  */
-interface ScoredChunk {
+export interface ScoredChunk {
   chunk: ChunkRow;
   semanticScore: number;
   keywordScore: number;
@@ -54,8 +54,32 @@ export async function hybridSearch(
   embedder: Embedder,
   options: SearchOptions,
 ): Promise<SearchResult[]> {
-  // TODO: implement
-  return [];
+  const { query, version, limit = 5 } = options;
+
+  if (!query.trim()) return [];
+
+  const chunks = db.getAllChunksWithEmbeddings(version);
+  if (chunks.length === 0) return [];
+
+  // Run both search strategies — fetch 2x limit for better fusion
+  const fetchLimit = limit * 2;
+  const [semantic, keyword] = await Promise.all([
+    semanticSearch(embedder, chunks, query, fetchLimit),
+    Promise.resolve(keywordSearch(db, query, version, fetchLimit)),
+  ]);
+
+  const fused = fuseResults(semantic, keyword, limit);
+
+  return fused.map((scored) => {
+    const doc = db.getDocById(scored.chunk.doc_id);
+    return {
+      score: scored.fusedScore,
+      heading: scored.chunk.heading,
+      content: scored.chunk.content,
+      url: scored.chunk.url,
+      docTitle: doc?.title ?? "",
+    };
+  });
 }
 
 /**
@@ -70,8 +94,22 @@ export async function semanticSearch(
   query: string,
   limit: number,
 ): Promise<ScoredChunk[]> {
-  // TODO: implement
-  return [];
+  const queryEmbedding = await embedder.embed(query, { isQuery: true });
+
+  return chunks
+    .filter((c) => c.embedding !== null)
+    .map((chunk) => {
+      const chunkEmbedding = blobToEmbedding(chunk.embedding as Buffer);
+      const score = cosineSimilarity(queryEmbedding, chunkEmbedding);
+      return {
+        chunk,
+        semanticScore: score,
+        keywordScore: 0,
+        fusedScore: score,
+      };
+    })
+    .sort((a, b) => b.semanticScore - a.semanticScore)
+    .slice(0, limit);
 }
 
 /**
@@ -85,8 +123,15 @@ export function keywordSearch(
   version: TailwindVersion,
   limit: number,
 ): ScoredChunk[] {
-  // TODO: implement
-  return [];
+  const ftsChunks = db.searchFts(query, version, limit);
+
+  return ftsChunks.map((chunk, index) => ({
+    chunk,
+    semanticScore: 0,
+    // Assign decreasing scores based on FTS rank order
+    keywordScore: 1 / (index + 1),
+    fusedScore: 0,
+  }));
 }
 
 /**
@@ -94,12 +139,49 @@ export function keywordSearch(
  *
  * Uses reciprocal rank fusion (RRF) to combine results from
  * both search strategies, deduplicating by chunk ID.
+ *
+ * Formula: score = 1/(k + rank_semantic) + 1/(k + rank_keyword)
+ * where k = 60 (standard RRF constant)
  */
 export function fuseResults(
   semanticResults: ScoredChunk[],
   keywordResults: ScoredChunk[],
   limit: number,
 ): ScoredChunk[] {
-  // TODO: implement
-  return [];
+  const K = 60;
+  const chunkMap = new Map<number, ScoredChunk>();
+
+  // Assign semantic RRF scores (1-indexed ranks)
+  for (let i = 0; i < semanticResults.length; i++) {
+    const rank = i + 1;
+    const rrf = 1 / (K + rank);
+    const { chunk } = semanticResults[i];
+    const entry: ScoredChunk = chunkMap.get(chunk.id) ?? {
+      chunk,
+      semanticScore: 0,
+      keywordScore: 0,
+      fusedScore: 0,
+    };
+    entry.fusedScore += rrf;
+    entry.semanticScore = semanticResults[i].semanticScore;
+    chunkMap.set(chunk.id, entry);
+  }
+
+  // Assign keyword RRF scores
+  for (let i = 0; i < keywordResults.length; i++) {
+    const rank = i + 1;
+    const rrf = 1 / (K + rank);
+    const { chunk } = keywordResults[i];
+    const entry: ScoredChunk = chunkMap.get(chunk.id) ?? {
+      chunk,
+      semanticScore: 0,
+      keywordScore: 0,
+      fusedScore: 0,
+    };
+    entry.fusedScore += rrf;
+    entry.keywordScore = keywordResults[i].keywordScore;
+    chunkMap.set(chunk.id, entry);
+  }
+
+  return [...chunkMap.values()].sort((a, b) => b.fusedScore - a.fusedScore).slice(0, limit);
 }
