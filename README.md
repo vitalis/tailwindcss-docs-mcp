@@ -89,6 +89,10 @@ bun run build                  # TypeScript
 bunx biome check src/ test/    # Lint
 ```
 
+## Acknowledgments
+
+Inspired by [HexDocs MCP](https://github.com/bradleygolden/hexdocs-mcp), which does the same for Elixir/Hex documentation.
+
 ## License
 
 MIT
