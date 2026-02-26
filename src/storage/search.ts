@@ -6,6 +6,25 @@ import { type ChunkRow, type Database, blobToEmbedding } from "./database.js";
 /** Log a performance warning when brute-force search exceeds this many chunks. */
 const BRUTE_FORCE_WARN_THRESHOLD = 5000;
 
+/**
+ * In-process cache for chunk embeddings, keyed by version.
+ * Avoids reloading all BLOB data from SQLite on every search request.
+ * Call `invalidateChunkCache()` after indexing to pick up new data.
+ */
+const chunkCache = new Map<TailwindVersion, ChunkRow[]>();
+
+/**
+ * Invalidate the in-process chunk embedding cache for a specific version,
+ * or all versions if none specified.
+ */
+export function invalidateChunkCache(version?: TailwindVersion): void {
+  if (version) {
+    chunkCache.delete(version);
+  } else {
+    chunkCache.clear();
+  }
+}
+
 /** Multiplier applied to the requested limit for each search strategy.
  *  Fetching more candidates from each strategy improves fusion quality. */
 const CANDIDATE_MULTIPLIER = 2;
@@ -68,7 +87,11 @@ export async function hybridSearch(
 
   if (!query.trim()) return [];
 
-  const chunks = db.getAllChunksWithEmbeddings(version);
+  let chunks = chunkCache.get(version);
+  if (!chunks) {
+    chunks = db.getAllChunksWithEmbeddings(version);
+    chunkCache.set(version, chunks);
+  }
   if (chunks.length > BRUTE_FORCE_WARN_THRESHOLD) {
     console.warn(
       `[tailwindcss-docs-mcp] ${chunks.length} chunks loaded for brute-force semantic search. Consider optimizing for large corpora.`,

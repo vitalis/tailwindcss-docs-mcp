@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEmbeddingInput } from "../../src/pipeline/embedder.js";
+import { buildEmbeddingInput, normalize } from "../../src/pipeline/embedder.js";
 import { createMockEmbedder } from "../setup.js";
 
 describe("Embedder", () => {
@@ -12,6 +12,45 @@ describe("Embedder", () => {
     it("handles empty heading", () => {
       const result = buildEmbeddingInput("Padding", "", "Content");
       expect(result).toBe("Tailwind CSS: Padding\n\n\n\nContent");
+    });
+  });
+
+  describe("normalize", () => {
+    it("produces a unit vector", () => {
+      const input = new Float32Array([3, 4]);
+      const result = normalize(input);
+      expect(result[0]).toBeCloseTo(0.6, 5);
+      expect(result[1]).toBeCloseTo(0.8, 5);
+      const mag = Math.sqrt(result[0] ** 2 + result[1] ** 2);
+      expect(mag).toBeCloseTo(1.0, 5);
+    });
+
+    it("returns zero vector unchanged", () => {
+      const input = new Float32Array([0, 0, 0]);
+      const result = normalize(input);
+      expect(Array.from(result)).toEqual([0, 0, 0]);
+    });
+
+    it("does not mutate the input vector", () => {
+      const input = new Float32Array([3, 4]);
+      normalize(input);
+      expect(input[0]).toBe(3);
+      expect(input[1]).toBe(4);
+    });
+
+    it("handles single-element vector", () => {
+      const input = new Float32Array([5]);
+      const result = normalize(input);
+      expect(result[0]).toBeCloseTo(1.0, 5);
+    });
+
+    it("handles high-dimensional vector", () => {
+      const input = new Float32Array(384);
+      for (let i = 0; i < 384; i++) input[i] = i + 1;
+      const result = normalize(input);
+      let mag = 0;
+      for (let i = 0; i < result.length; i++) mag += result[i] ** 2;
+      expect(Math.sqrt(mag)).toBeCloseTo(1.0, 4);
     });
   });
 

@@ -35,7 +35,7 @@ export function buildEmbeddingInput(docTitle: string, heading: string, content: 
 /**
  * Normalize a vector to unit length (L2 normalization).
  */
-function normalize(vector: Float32Array): Float32Array {
+export function normalize(vector: Float32Array): Float32Array {
   let magnitude = 0;
   for (let i = 0; i < vector.length; i++) {
     magnitude += vector[i] * vector[i];

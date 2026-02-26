@@ -4,6 +4,7 @@ import type { Embedder } from "../pipeline/embedder.js";
 import { fetchDocs, readCachedDocs } from "../pipeline/fetcher.js";
 import { parseMdx } from "../pipeline/parser.js";
 import type { Database } from "../storage/database.js";
+import { invalidateChunkCache } from "../storage/search.js";
 import type { Config, TailwindVersion } from "../utils/config.js";
 
 /**
@@ -54,7 +55,7 @@ export async function handleFetchDocs(
   const force = input.force ?? false;
 
   // Step 1: Fetch from GitHub (or use cache)
-  await fetchDocs(config, { version, force });
+  const fetchResult = await fetchDocs(config, { version, force });
 
   // Step 1b: Read cached files
   const rawFiles = readCachedDocs(config, version);
@@ -107,9 +108,13 @@ export async function handleFetchDocs(
   // Update index status
   db.updateIndexStatus(version, config.embeddingModel, config.embeddingDimensions);
 
+  // Invalidate search cache so the next query picks up new embeddings
+  invalidateChunkCache(version);
+
   const durationMs = Date.now() - start;
+  const partial = fetchResult.skipped > 0 ? ` (${fetchResult.skipped} files failed to fetch)` : "";
   return {
-    message: `Indexed ${rawFiles.length} documents with ${totalChunks} chunks in ${durationMs}ms.`,
+    message: `Indexed ${rawFiles.length} documents with ${totalChunks} chunks in ${durationMs}ms.${partial}`,
     docCount: rawFiles.length,
     chunkCount: totalChunks,
     durationMs,

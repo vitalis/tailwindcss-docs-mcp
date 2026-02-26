@@ -1,7 +1,13 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { fetchDocs, readCachedDocs } from "../../src/pipeline/fetcher.js";
+import {
+  MAX_CONSECUTIVE_FAILURES,
+  type OctokitGitApi,
+  fetchBlobs,
+  fetchDocs,
+  readCachedDocs,
+} from "../../src/pipeline/fetcher.js";
 import { testConfig as baseTestConfig } from "../helpers/factories.js";
 
 const TEST_DIR = "/tmp/tailwindcss-docs-mcp-fetcher-test";
@@ -125,7 +131,149 @@ describe("Fetcher", () => {
 
       expect(result.cached).toBe(true);
       expect(result.fileCount).toBe(2);
+      expect(result.skipped).toBe(0);
       expect(result.outputDir).toBe(dir);
+    });
+  });
+
+  describe("fetchBlobs", () => {
+    function createMockOctokit(responses: Map<string, string | Error>): OctokitGitApi {
+      return {
+        rest: {
+          git: {
+            getRef: () => Promise.reject(new Error("not used")),
+            getTree: () => Promise.reject(new Error("not used")),
+            getBlob: ({ file_sha }) => {
+              const response = responses.get(file_sha);
+              if (response instanceof Error) return Promise.reject(response);
+              const content = Buffer.from(response ?? "").toString("base64");
+              return Promise.resolve({ data: { content } });
+            },
+          },
+        },
+      };
+    }
+
+    it("fetches all blobs and writes files to disk", async () => {
+      const outputDir = join(TEST_DIR, "blobs");
+      mkdirSync(outputDir, { recursive: true });
+      const responses = new Map([
+        ["sha1", "padding content"],
+        ["sha2", "margin content"],
+      ]);
+      const octokit = createMockOctokit(responses);
+
+      const result = await fetchBlobs(
+        octokit,
+        [
+          { sha: "sha1", path: "src/pages/docs/padding.mdx" },
+          { sha: "sha2", path: "src/pages/docs/margin.mdx" },
+        ],
+        outputDir,
+      );
+
+      expect(result.fetched).toBe(2);
+      expect(result.skipped).toBe(0);
+      expect(readFileSync(join(outputDir, "padding.mdx"), "utf-8")).toBe("padding content");
+      expect(readFileSync(join(outputDir, "margin.mdx"), "utf-8")).toBe("margin content");
+    });
+
+    it("skips files without sha or path", async () => {
+      const outputDir = join(TEST_DIR, "blobs");
+      mkdirSync(outputDir, { recursive: true });
+      const octokit = createMockOctokit(new Map([["sha1", "content"]]));
+
+      const result = await fetchBlobs(
+        octokit,
+        [
+          { sha: null, path: "a.mdx" },
+          { sha: "sha1", path: undefined },
+          { sha: "sha1", path: "b.mdx" },
+        ],
+        outputDir,
+      );
+
+      expect(result.fetched).toBe(1);
+      expect(result.skipped).toBe(0);
+    });
+
+    it("counts skipped files on individual errors", async () => {
+      const outputDir = join(TEST_DIR, "blobs");
+      mkdirSync(outputDir, { recursive: true });
+      const responses = new Map<string, string | Error>([
+        ["sha1", "ok content"],
+        ["sha2", new Error("network error")],
+        ["sha3", "also ok"],
+      ]);
+      const octokit = createMockOctokit(responses);
+
+      const result = await fetchBlobs(
+        octokit,
+        [
+          { sha: "sha1", path: "a.mdx" },
+          { sha: "sha2", path: "b.mdx" },
+          { sha: "sha3", path: "c.mdx" },
+        ],
+        outputDir,
+      );
+
+      expect(result.fetched).toBe(2);
+      expect(result.skipped).toBe(1);
+      expect(existsSync(join(outputDir, "a.mdx"))).toBe(true);
+      expect(existsSync(join(outputDir, "b.mdx"))).toBe(false);
+      expect(existsSync(join(outputDir, "c.mdx"))).toBe(true);
+    });
+
+    it("aborts after MAX_CONSECUTIVE_FAILURES consecutive errors", async () => {
+      const outputDir = join(TEST_DIR, "blobs");
+      mkdirSync(outputDir, { recursive: true });
+      // All files fail
+      const responses = new Map<string, string | Error>();
+      const totalFiles = MAX_CONSECUTIVE_FAILURES + 3;
+      const files = [];
+      for (let i = 0; i < totalFiles; i++) {
+        const sha = `sha${i}`;
+        responses.set(sha, new Error("fail"));
+        files.push({ sha, path: `file${i}.mdx` });
+      }
+      const octokit = createMockOctokit(responses);
+
+      const result = await fetchBlobs(octokit, files, outputDir);
+
+      // Should abort after MAX_CONSECUTIVE_FAILURES, not process all files
+      expect(result.fetched).toBe(0);
+      expect(result.skipped).toBe(MAX_CONSECUTIVE_FAILURES);
+    });
+
+    it("resets consecutive failure count on success", async () => {
+      const outputDir = join(TEST_DIR, "blobs");
+      mkdirSync(outputDir, { recursive: true });
+      // Alternate: fail, fail, success, fail, fail, success — never hits threshold
+      const responses = new Map<string, string | Error>([
+        ["s1", new Error("fail")],
+        ["s2", new Error("fail")],
+        ["s3", "ok"],
+        ["s4", new Error("fail")],
+        ["s5", new Error("fail")],
+        ["s6", "ok"],
+      ]);
+      const octokit = createMockOctokit(responses);
+
+      const result = await fetchBlobs(
+        octokit,
+        [
+          { sha: "s1", path: "a.mdx" },
+          { sha: "s2", path: "b.mdx" },
+          { sha: "s3", path: "c.mdx" },
+          { sha: "s4", path: "d.mdx" },
+          { sha: "s5", path: "e.mdx" },
+          { sha: "s6", path: "f.mdx" },
+        ],
+        outputDir,
+      );
+
+      expect(result.fetched).toBe(2);
+      expect(result.skipped).toBe(4);
     });
   });
 });

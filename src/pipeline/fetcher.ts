@@ -23,6 +23,8 @@ export interface FetchResult {
   outputDir: string;
   /** Whether files were fetched from network or loaded from cache */
   cached: boolean;
+  /** Number of files skipped due to fetch errors (0 when cached) */
+  skipped: number;
 }
 
 /**
@@ -41,7 +43,7 @@ export interface RawMdxFile {
  * Minimal interface for the subset of Octokit's git API used by the fetcher.
  * Avoids importing the full Octokit type (which varies by import method).
  */
-interface OctokitGitApi {
+export interface OctokitGitApi {
   rest: {
     git: {
       getRef(params: {
@@ -81,7 +83,7 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
   if (!force && existsSync(outputDir)) {
     const cached = readdirSync(outputDir).filter((f) => f.endsWith(".mdx"));
     if (cached.length > 0) {
-      return { fileCount: cached.length, outputDir, cached: true };
+      return { fileCount: cached.length, outputDir, cached: true, skipped: 0 };
     }
   }
 
@@ -123,24 +125,29 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
   );
 
   // Step 3: Fetch blobs sequentially
-  const fetched = await fetchBlobs(octokit, mdxFiles, outputDir);
+  const blobResult = await fetchBlobs(octokit, mdxFiles, outputDir);
 
-  return { fileCount: fetched, outputDir, cached: false };
+  return {
+    fileCount: blobResult.fetched,
+    outputDir,
+    cached: false,
+    skipped: blobResult.skipped,
+  };
 }
 
 /** Maximum consecutive blob fetch failures before aborting. */
-const MAX_CONSECUTIVE_FAILURES = 5;
+export const MAX_CONSECUTIVE_FAILURES = 5;
 
 /**
  * Fetch git blobs sequentially, writing each to outputDir.
  * Aborts after MAX_CONSECUTIVE_FAILURES consecutive failures.
- * Returns the number of successfully fetched files.
+ * Returns counts of successfully fetched and skipped files.
  */
-async function fetchBlobs(
+export async function fetchBlobs(
   octokit: OctokitGitApi,
   files: { sha?: string | null; path?: string }[],
   outputDir: string,
-): Promise<number> {
+): Promise<{ fetched: number; skipped: number }> {
   let fetched = 0;
   let skipped = 0;
   let consecutiveFailures = 0;
@@ -180,7 +187,7 @@ async function fetchBlobs(
     );
   }
 
-  return fetched;
+  return { fetched, skipped };
 }
 
 /**

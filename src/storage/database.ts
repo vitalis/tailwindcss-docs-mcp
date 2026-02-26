@@ -217,32 +217,44 @@ async function openBunSqlite(dbPath: string): Promise<SqliteDb> {
   // Enforce foreign key constraints at the database level
   db.exec("PRAGMA foreign_keys=ON");
 
+  // Cache compiled statements to avoid re-calling db.query() on every operation.
+  const stmtCache = new Map<string, BunSqliteStatement>();
+  function stmt(sql: string): BunSqliteStatement {
+    let s = stmtCache.get(sql);
+    if (!s) {
+      s = db.query(sql);
+      stmtCache.set(sql, s);
+    }
+    return s;
+  }
+
   return {
     exec(sql: string): void {
       db.exec(sql);
     },
     queryGet<T>(sql: string, ...params: unknown[]): T | undefined {
-      const result = db.query(sql).get(...params);
+      const result = stmt(sql).get(...params);
       // bun:sqlite returns null for no match; normalize to undefined
       return (result ?? undefined) as T | undefined;
     },
     queryAll<T>(sql: string, ...params: unknown[]): T[] {
-      return db.query(sql).all(...params) as T[];
+      return stmt(sql).all(...params) as T[];
     },
     queryRun(sql: string, ...params: unknown[]): StatementResult {
-      db.query(sql).run(...params);
+      stmt(sql).run(...params);
       // bun:sqlite doesn't return changes from .run(), so we query it.
       // Safe: bun:sqlite is synchronous and single-threaded — no write can
       // interleave between .run() and this SELECT within the same connection.
-      const info = db
-        .query("SELECT changes() as changes, last_insert_rowid() as lastInsertRowid")
-        .get() as {
+      const info = stmt(
+        "SELECT changes() as changes, last_insert_rowid() as lastInsertRowid",
+      ).get() as {
         changes: number;
         lastInsertRowid: number;
       };
       return info;
     },
     close(): void {
+      stmtCache.clear();
       db.close();
     },
   };
@@ -261,24 +273,39 @@ async function openBetterSqlite3(dbPath: string): Promise<SqliteDb> {
   // Enforce foreign key constraints at the database level
   db.pragma("foreign_keys=ON");
 
+  // Cache compiled statements to avoid re-calling db.prepare() on every operation.
+  // Use `any` for the cached statement type because better-sqlite3's Statement
+  // generic overloads are incompatible with unknown[] spread args at the type level.
+  // biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 Statement generics
+  const stmtCache = new Map<string, any>();
+  function stmt(sql: string) {
+    let s = stmtCache.get(sql);
+    if (!s) {
+      s = db.prepare(sql);
+      stmtCache.set(sql, s);
+    }
+    return s;
+  }
+
   return {
     exec(sql: string): void {
       db.exec(sql);
     },
     queryGet<T>(sql: string, ...params: unknown[]): T | undefined {
-      return db.prepare(sql).get(...params) as T | undefined;
+      return stmt(sql).get(...params) as T | undefined;
     },
     queryAll<T>(sql: string, ...params: unknown[]): T[] {
-      return db.prepare(sql).all(...params) as T[];
+      return stmt(sql).all(...params) as T[];
     },
     queryRun(sql: string, ...params: unknown[]): StatementResult {
-      const result = db.prepare(sql).run(...params);
+      const result = stmt(sql).run(...params);
       return {
         changes: result.changes,
         lastInsertRowid: Number(result.lastInsertRowid),
       };
     },
     close(): void {
+      stmtCache.clear();
       db.close();
     },
   };

@@ -9,6 +9,7 @@ import {
   type ScoredChunk,
   fuseResults,
   hybridSearch,
+  invalidateChunkCache,
   keywordSearch,
   semanticSearch,
 } from "../../src/storage/search.js";
@@ -302,6 +303,7 @@ describe("Search", () => {
     let db: Database;
 
     beforeEach(async () => {
+      invalidateChunkCache();
       db = await createDatabase(testConfig());
     });
 
