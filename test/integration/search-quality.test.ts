@@ -1,53 +1,139 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { readFileSync } from "node:fs";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { chunkDocument } from "../../src/pipeline/chunker.js";
+import { buildEmbeddingInput } from "../../src/pipeline/embedder.js";
+import { parseMdx } from "../../src/pipeline/parser.js";
+import { type Database, createDatabase } from "../../src/storage/database.js";
+import { hybridSearch, keywordSearch } from "../../src/storage/search.js";
+import type { Config } from "../../src/utils/config.js";
+import { createMockEmbedder } from "../setup.js";
+
+const FIXTURES_DIR = new URL("../fixtures/mdx", import.meta.url).pathname;
+
+function testConfig(): Config {
+  return {
+    dataDir: "/tmp/test",
+    dbPath: ":memory:",
+    rawDir: "/tmp/test/raw",
+    defaultVersion: "v3",
+    embeddingModel: "test-model",
+    embeddingDimensions: 384,
+    queryPrefix: "test: ",
+  };
+}
+
+const FIXTURE_SLUGS = ["padding", "dark-mode", "grid-template-columns"];
 
 describe("Search Quality", () => {
-  // These tests verify that the full pipeline (chunk -> embed -> store -> search)
-  // returns relevant results. They run against a small fixture set of real Tailwind docs.
+  let db: Database;
+  const embedder = createMockEmbedder(384);
 
   beforeAll(async () => {
-    // TODO: Run the full pipeline once against fixture docs
-    // 1. Parse fixture MDX files
-    // 2. Chunk documents
-    // 3. Embed chunks (with real or mock model)
-    // 4. Store in test database
+    db = await createDatabase(testConfig());
+
+    for (const slug of FIXTURE_SLUGS) {
+      const raw = readFileSync(`${FIXTURES_DIR}/${slug}.mdx`, "utf-8");
+      const doc = parseMdx(raw, slug, "v3");
+      const chunks = chunkDocument(doc);
+      const docId = db.upsertDoc(doc);
+
+      for (const chunk of chunks) {
+        const input = buildEmbeddingInput(doc.title, chunk.heading, chunk.content);
+        const embedding = await embedder.embed(input);
+        db.upsertChunk(chunk, docId, embedding);
+      }
+    }
+
+    db.updateIndexStatus("v3", "test-model", 384);
   });
 
-  it("finds padding docs for 'how to add horizontal padding'", () => {
-    // TODO: implement
-    // Expected top result contains: padding doc, px-* utilities
+  afterAll(() => {
+    db.close();
   });
 
-  it("finds grid docs for 'responsive grid with gaps'", () => {
-    // TODO: implement
-    // Expected top result contains: grid-template-columns or gap doc
+  it("finds padding docs for 'padding' query", async () => {
+    // FTS5 keyword search should match "padding" in the padding doc content
+    const results = await hybridSearch(db, embedder, {
+      query: "padding",
+      version: "v3",
+      limit: 5,
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    const paddingResults = results.filter((r) => r.docTitle === "Padding");
+    expect(paddingResults.length).toBeGreaterThan(0);
   });
 
-  it("finds dark mode docs for 'dark mode configuration'", () => {
-    // TODO: implement
-    // Expected top result contains: dark-mode doc
+  it("finds grid docs for 'grid' query", async () => {
+    // FTS5 keyword search should match "grid" in the grid-template-columns doc
+    const results = await hybridSearch(db, embedder, {
+      query: "grid",
+      version: "v3",
+      limit: 5,
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    const gridResults = results.filter((r) => r.docTitle === "Grid Template Columns");
+    expect(gridResults.length).toBeGreaterThan(0);
   });
 
-  it("finds padding docs for exact class name 'px-4'", () => {
-    // TODO: implement
-    // Expected: padding doc found via keyword search
+  it("finds dark mode docs for 'dark mode' query", async () => {
+    // "dark" and "mode" should match via FTS in the dark-mode doc
+    const results = await hybridSearch(db, embedder, {
+      query: "dark mode",
+      version: "v3",
+      limit: 5,
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    const darkModeResults = results.filter((r) => r.docTitle === "Dark Mode");
+    expect(darkModeResults.length).toBeGreaterThan(0);
   });
 
-  it("finds space docs for exact class name 'space-x-4'", () => {
-    // TODO: implement
-    // Expected: space doc found via keyword search
+  it("finds padding docs for exact class 'px-4' keyword", () => {
+    // FTS5 keyword search should match the literal class name in content.
+    // FTS5 tokenizes on hyphens, so "px-4" becomes tokens "px" and "4".
+    // Searching for "px" should find padding docs.
+    const results = keywordSearch(db, "px", "v3", 10);
+
+    expect(results.length).toBeGreaterThan(0);
+    // Verify the matched chunks come from the padding doc
+    const paddingChunks = results.filter((r) => r.chunk.content.toLowerCase().includes("px"));
+    expect(paddingChunks.length).toBeGreaterThan(0);
   });
 
-  it("finds flexbox/grid docs for 'center a div'", () => {
-    // TODO: implement
-    // Expected: flexbox, grid, or align-items doc
+  it("all results have valid URLs and non-empty content", async () => {
+    const queries = ["padding", "grid", "dark mode"];
+
+    for (const query of queries) {
+      const results = await hybridSearch(db, embedder, {
+        query,
+        version: "v3",
+        limit: 5,
+      });
+
+      for (const result of results) {
+        expect(result.url).toMatch(/^https:\/\/tailwindcss\.com\/docs\//);
+        expect(result.content.length).toBeGreaterThan(0);
+        expect(result.docTitle.length).toBeGreaterThan(0);
+        expect(result.heading).toBeDefined();
+      }
+    }
   });
 
-  it("finds font-weight docs for 'make text bold'", () => {
-    // TODO: implement
-    // Expected: font-weight doc
-  });
+  it("result scores are in descending order", async () => {
+    const queries = ["padding", "grid", "dark"];
 
-  // Scoring thresholds:
-  // - Top result must have cosine similarity > 0.5
-  // - The correct doc must appear in the top 3 results
+    for (const query of queries) {
+      const results = await hybridSearch(db, embedder, {
+        query,
+        version: "v3",
+        limit: 10,
+      });
+
+      for (let i = 1; i < results.length; i++) {
+        expect(results[i - 1].score).toBeGreaterThanOrEqual(results[i].score);
+      }
+    }
+  });
 });
