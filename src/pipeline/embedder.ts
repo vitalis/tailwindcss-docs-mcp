@@ -37,8 +37,25 @@ export interface Embedder {
  * - Actual content
  */
 export function buildEmbeddingInput(docTitle: string, heading: string, content: string): string {
-  // TODO: implement
-  return "";
+  return `Tailwind CSS: ${docTitle}\n\n${heading}\n\n${content}`;
+}
+
+/**
+ * Normalize a vector to unit length (L2 normalization).
+ */
+function normalize(vector: Float32Array): Float32Array {
+  let magnitude = 0;
+  for (let i = 0; i < vector.length; i++) {
+    magnitude += vector[i] * vector[i];
+  }
+  magnitude = Math.sqrt(magnitude);
+  if (magnitude === 0) return vector;
+
+  const result = new Float32Array(vector.length);
+  for (let i = 0; i < vector.length; i++) {
+    result[i] = vector[i] / magnitude;
+  }
+  return result;
 }
 
 /**
@@ -52,9 +69,27 @@ export function buildEmbeddingInput(docTitle: string, heading: string, content: 
  * This is handled automatically when `isQuery: true` is passed to embed().
  */
 export async function createEmbedder(config: Config): Promise<Embedder> {
-  // TODO: implement
-  // 1. Load pipeline from @huggingface/transformers
-  // 2. Use config.embeddingModel as the model identifier
-  // 3. Return an Embedder instance
-  throw new Error("Not implemented");
+  const { pipeline } = await import("@huggingface/transformers");
+  const extractor = await pipeline("feature-extraction", config.embeddingModel, {
+    dtype: "fp32",
+  });
+
+  async function embed(text: string, options?: EmbedOptions): Promise<Float32Array> {
+    const input = options?.isQuery ? `${config.queryPrefix}${text}` : text;
+    const output = await extractor(input, { pooling: "cls", normalize: false });
+    const data = output.tolist()[0] as number[];
+    return normalize(new Float32Array(data));
+  }
+
+  return {
+    embed,
+    async embedBatch(texts: string[], options?: EmbedOptions): Promise<Float32Array[]> {
+      const results: Float32Array[] = [];
+      for (const text of texts) {
+        results.push(await embed(text, options));
+      }
+      return results;
+    },
+    isReady: () => true,
+  };
 }
