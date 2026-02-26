@@ -52,11 +52,11 @@ export async function createServer(deps: ServerDeps): Promise<void> {
     TOOL_NAMES.FETCH_DOCS,
     "Download and index Tailwind CSS documentation for local semantic search. Only needs to be run once per version. Re-run with force=true to refresh.",
     {
-      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version"),
+      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v3)"),
       force: z
         .boolean()
         .optional()
-        .describe("Force re-download and re-index even if already cached"),
+        .describe("Force re-download and re-index even if already cached (default: false)"),
     },
     async (params) => {
       const result = await handleFetchDocs(params, config, db, embedder);
@@ -69,9 +69,21 @@ export async function createServer(deps: ServerDeps): Promise<void> {
     TOOL_NAMES.SEARCH_DOCS,
     "Search Tailwind CSS documentation using natural language. Returns the most relevant documentation snippets with code examples. Requires fetch_docs to be run first.",
     {
-      query: z.string().describe("Natural language search query"),
-      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version to search"),
-      limit: z.number().min(1).max(20).optional().describe("Maximum number of results to return"),
+      query: z
+        .string()
+        .describe(
+          "Natural language search query (e.g., 'how to add responsive padding', 'dark mode configuration', 'grid layout with gaps')",
+        ),
+      version: z
+        .enum(["v3", "v4"])
+        .optional()
+        .describe("Tailwind CSS major version to search (default: v3)"),
+      limit: z
+        .number()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Maximum number of results to return (default: 5)"),
     },
     async (params) => {
       const result = await handleSearchDocs(params, db, embedder, config.defaultVersion);
@@ -85,8 +97,13 @@ export async function createServer(deps: ServerDeps): Promise<void> {
     TOOL_NAMES.LIST_UTILITIES,
     "List all Tailwind CSS utility categories with descriptions. Useful for discovering what utilities are available.",
     {
-      category: z.string().optional().describe("Filter by category name"),
-      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version"),
+      category: z
+        .string()
+        .optional()
+        .describe(
+          "Filter by category (e.g., 'Layout', 'Spacing', 'Typography', 'Flexbox & Grid'). Omit to list all categories.",
+        ),
+      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v3)"),
     },
     async (params) => {
       const result = await handleListUtilities(params, db, config.defaultVersion);
@@ -103,7 +120,7 @@ export async function createServer(deps: ServerDeps): Promise<void> {
       version: z
         .enum(["v3", "v4"])
         .optional()
-        .describe("Check specific version. Omit to check all."),
+        .describe("Check specific version (v3 or v4). Omit to check all."),
     },
     async (params) => {
       const result = await handleCheckStatus(params, db);

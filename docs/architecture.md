@@ -601,27 +601,27 @@ docs →](https://tailwindcss.com/docs/padding#adding-horizontal-padding)
 
 ### Phase 1: Core (MVP)
 
-- [ ] MCP server scaffold with `@modelcontextprotocol/sdk`
-- [ ] `fetch_docs`: download MDX from GitHub API
-- [ ] MDX parser: strip JSX, extract clean markdown
-- [ ] Chunker: heading-based splitting
-- [ ] Embedder: in-process ONNX via `@huggingface/transformers` (`snowflake-arctic-embed-xs`)
-- [ ] SQLite storage with BLOB embeddings
-- [ ] `search_docs`: hybrid semantic + keyword search
-- [ ] `check_status`: index metadata
+- [x] MCP server scaffold with `@modelcontextprotocol/sdk`
+- [x] `fetch_docs`: download MDX from GitHub API
+- [x] MDX parser: strip JSX, extract clean markdown
+- [x] Chunker: heading-based splitting
+- [x] Embedder: in-process ONNX via `@huggingface/transformers` (`snowflake-arctic-embed-xs`)
+- [x] SQLite storage with BLOB embeddings
+- [x] `search_docs`: hybrid semantic + keyword search
+- [x] `check_status`: index metadata
 
 ### Phase 2: Polish
 
-- [ ] `list_utilities`: category browser
+- [x] `list_utilities`: category browser
 - [ ] Auto-detect version from project's `package.json` (look for `tailwindcss` dependency)
-- [ ] Graceful error handling (no index, network errors, model download failures)
-- [ ] `bun:sqlite` / `better-sqlite3` runtime detection
+- [x] Graceful error handling (no index, network errors, model download failures)
+- [x] `bun:sqlite` / `better-sqlite3` runtime detection
 
 ### Phase 3: Distribution
 
 - [ ] Publish to npm (`tailwindcss-docs-mcp`), runnable via `bunx` or `npx`
 - [ ] README with installation instructions for Claude Code, Cursor, VS Code
-- [ ] GitHub Actions CI
+- [x] GitHub Actions CI
 
 ---
 

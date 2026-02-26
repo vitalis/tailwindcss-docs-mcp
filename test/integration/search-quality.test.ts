@@ -42,8 +42,7 @@ describe("Search Quality", () => {
     db.close();
   });
 
-  it("finds padding docs for 'padding' query", async () => {
-    // FTS5 keyword search should match "padding" in the padding doc content
+  it("ranks 'Padding' as top-1 result for 'padding' query", async () => {
     const results = await hybridSearch(db, embedder, {
       query: "padding",
       version: "v3",
@@ -51,12 +50,11 @@ describe("Search Quality", () => {
     });
 
     expect(results.length).toBeGreaterThan(0);
-    const paddingResults = results.filter((r) => r.docTitle === "Padding");
-    expect(paddingResults.length).toBeGreaterThan(0);
+    // The "Padding" doc should be the top result, not just present somewhere
+    expect(results[0].docTitle).toBe("Padding");
   });
 
-  it("finds grid docs for 'grid' query", async () => {
-    // FTS5 keyword search should match "grid" in the grid-template-columns doc
+  it("ranks 'Grid Template Columns' as top-1 result for 'grid' query", async () => {
     const results = await hybridSearch(db, embedder, {
       query: "grid",
       version: "v3",
@@ -64,12 +62,10 @@ describe("Search Quality", () => {
     });
 
     expect(results.length).toBeGreaterThan(0);
-    const gridResults = results.filter((r) => r.docTitle === "Grid Template Columns");
-    expect(gridResults.length).toBeGreaterThan(0);
+    expect(results[0].docTitle).toBe("Grid Template Columns");
   });
 
-  it("finds dark mode docs for 'dark mode' query", async () => {
-    // "dark" and "mode" should match via FTS in the dark-mode doc
+  it("ranks 'Dark Mode' as top-1 result for 'dark mode' query", async () => {
     const results = await hybridSearch(db, embedder, {
       query: "dark mode",
       version: "v3",
@@ -77,8 +73,7 @@ describe("Search Quality", () => {
     });
 
     expect(results.length).toBeGreaterThan(0);
-    const darkModeResults = results.filter((r) => r.docTitle === "Dark Mode");
-    expect(darkModeResults.length).toBeGreaterThan(0);
+    expect(results[0].docTitle).toBe("Dark Mode");
   });
 
   it("finds padding docs for exact hyphenated class keyword", () => {
@@ -148,5 +143,36 @@ describe("Search Quality", () => {
         expect(result.score).toBeLessThanOrEqual(1);
       }
     }
+  });
+
+  it("passes isQuery: true to embedder for search queries", async () => {
+    const trackingEmbedder = createMockEmbedder(384);
+    // Clear any calls from setup
+    trackingEmbedder.calls.length = 0;
+
+    await hybridSearch(db, trackingEmbedder, {
+      query: "padding",
+      version: "v3",
+      limit: 5,
+    });
+
+    // hybridSearch should call embed with isQuery: true for the query
+    const queryCalls = trackingEmbedder.calls.filter((c) => c.options?.isQuery === true);
+    expect(queryCalls.length).toBeGreaterThan(0);
+  });
+
+  it("finds hyphenated class names via hybrid search", async () => {
+    // FTS5 with tokenchars="-" treats "grid-cols-3" as a single token
+    const results = await hybridSearch(db, embedder, {
+      query: "grid-cols-3",
+      version: "v3",
+      limit: 5,
+    });
+
+    expect(results.length).toBeGreaterThan(0);
+    // With mock embedder, semantic scores are noise — grid doc may not be top-1.
+    // Verify the correct doc appears in results via FTS keyword matching.
+    const gridResults = results.filter((r) => r.docTitle === "Grid Template Columns");
+    expect(gridResults.length).toBeGreaterThan(0);
   });
 });

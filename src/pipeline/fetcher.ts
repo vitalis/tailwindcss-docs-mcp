@@ -93,10 +93,31 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
       item.path.endsWith(".mdx"),
   );
 
-  // Fetch blobs sequentially to respect GitHub API rate limits.
+  // Step 3: Fetch blobs sequentially
+  const fetched = await fetchBlobs(octokit, mdxFiles, outputDir);
+
+  return { fileCount: fetched, outputDir, cached: false };
+}
+
+/** Maximum consecutive blob fetch failures before aborting. */
+const MAX_CONSECUTIVE_FAILURES = 5;
+
+/**
+ * Fetch git blobs sequentially, writing each to outputDir.
+ * Aborts after MAX_CONSECUTIVE_FAILURES consecutive failures.
+ * Returns the number of successfully fetched files.
+ */
+async function fetchBlobs(
+  // biome-ignore lint/suspicious/noExplicitAny: Octokit type varies by import method
+  octokit: any,
+  files: { sha?: string | null; path?: string }[],
+  outputDir: string,
+): Promise<number> {
   let fetched = 0;
   let skipped = 0;
-  for (const file of mdxFiles) {
+  let consecutiveFailures = 0;
+
+  for (const file of files) {
     if (!file.sha || !file.path) continue;
 
     try {
@@ -107,24 +128,31 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
       });
 
       const content = Buffer.from(blobData.content, "base64").toString("utf-8");
-      const filename = basename(file.path);
-      writeFileSync(join(outputDir, filename), content, "utf-8");
+      writeFileSync(join(outputDir, basename(file.path)), content, "utf-8");
       fetched++;
+      consecutiveFailures = 0;
     } catch (error) {
       skipped++;
+      consecutiveFailures++;
       console.warn(
         `[tailwindcss-docs-mcp] Failed to fetch ${file.path}: ${error instanceof Error ? error.message : String(error)}`,
       );
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        console.warn(
+          `[tailwindcss-docs-mcp] Aborting: ${MAX_CONSECUTIVE_FAILURES} consecutive fetch failures. Check GITHUB_TOKEN and network.`,
+        );
+        break;
+      }
     }
   }
 
   if (skipped > 0) {
     console.warn(
-      `[tailwindcss-docs-mcp] Skipped ${skipped} of ${mdxFiles.length} files due to fetch errors.`,
+      `[tailwindcss-docs-mcp] Skipped ${skipped} of ${files.length} files due to fetch errors.`,
     );
   }
 
-  return { fileCount: fetched, outputDir, cached: false };
+  return fetched;
 }
 
 /**

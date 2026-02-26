@@ -158,6 +158,25 @@ describe("MCP Tool Handlers", () => {
       expect(result.results.length).toBeLessThanOrEqual(1);
     });
 
+    it("clamps limit to valid range", async () => {
+      await indexTestDoc(db, config, PADDING_MDX, "padding");
+      const embedder = createMockEmbedder(384);
+
+      // limit: 0 should be clamped to 1
+      const r0 = await handleSearchDocs({ query: "padding", limit: 0 }, db, embedder, "v3");
+      expect(r0.results.length).toBeLessThanOrEqual(1);
+      expect(r0.results.length).toBeGreaterThan(0);
+
+      // limit: -1 should be clamped to 1
+      const rNeg = await handleSearchDocs({ query: "padding", limit: -1 }, db, embedder, "v3");
+      expect(rNeg.results.length).toBeLessThanOrEqual(1);
+      expect(rNeg.results.length).toBeGreaterThan(0);
+
+      // limit: 100 should be clamped to 20
+      const rHigh = await handleSearchDocs({ query: "padding", limit: 100 }, db, embedder, "v3");
+      expect(rHigh.results.length).toBeLessThanOrEqual(20);
+    });
+
     it("formats search results as markdown", () => {
       const formatted = formatSearchResults({
         results: [

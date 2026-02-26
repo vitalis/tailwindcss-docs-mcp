@@ -22,11 +22,23 @@ export const FIXTURES_DIR = new URL("./fixtures/mdx", import.meta.url).pathname;
  * Each unique input text produces a unique but deterministic vector.
  */
 export function createMockEmbedder(dimensions = 384) {
-  return {
+  /** Tracks the options passed to each embed() call (for verifying isQuery usage). */
+  const calls: {
+    text: string;
+    options?: import("../src/pipeline/embedder.js").EmbedOptions;
+  }[] = [];
+
+  const embedder = {
+    /** Access recorded embed() calls for test assertions. */
+    get calls() {
+      return calls;
+    },
+
     async embed(
       text: string,
       _options?: import("../src/pipeline/embedder.js").EmbedOptions,
     ): Promise<Float32Array> {
+      calls.push({ text, options: _options });
       // Generate a deterministic vector based on text hash
       const vector = new Float32Array(dimensions);
       let hash = 0;
@@ -59,6 +71,8 @@ export function createMockEmbedder(dimensions = 384) {
       return true;
     },
   };
+
+  return embedder;
 }
 
 /**
