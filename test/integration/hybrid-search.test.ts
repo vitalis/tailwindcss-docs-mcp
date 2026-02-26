@@ -1,14 +1,8 @@
-import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chunkDocument } from "../../src/pipeline/chunker.js";
-import { buildEmbeddingInput } from "../../src/pipeline/embedder.js";
-import { parseMdx } from "../../src/pipeline/parser.js";
 import { type Database, createDatabase } from "../../src/storage/database.js";
 import { hybridSearch, keywordSearch, semanticSearch } from "../../src/storage/search.js";
-import { testConfig } from "../helpers/factories.js";
+import { loadFixturesIntoDB, testConfig } from "../helpers/factories.js";
 import { createMockEmbedder } from "../setup.js";
-
-const FIXTURES_DIR = new URL("../fixtures/mdx", import.meta.url).pathname;
 
 const FIXTURE_SLUGS = ["padding", "dark-mode", "grid-template-columns"];
 
@@ -18,21 +12,7 @@ describe("Hybrid Search Fusion", () => {
 
   beforeAll(async () => {
     db = await createDatabase(testConfig());
-
-    for (const slug of FIXTURE_SLUGS) {
-      const raw = readFileSync(`${FIXTURES_DIR}/${slug}.mdx`, "utf-8");
-      const doc = parseMdx(raw, slug, "v3");
-      const chunks = chunkDocument(doc);
-      const docId = db.upsertDoc(doc);
-
-      for (const chunk of chunks) {
-        const input = buildEmbeddingInput(doc.title, chunk.heading, chunk.content);
-        const embedding = await embedder.embed(input);
-        db.upsertChunk(chunk, docId, embedding);
-      }
-    }
-
-    db.updateIndexStatus("v3", "test-model", 384);
+    await loadFixturesIntoDB(db, embedder, FIXTURE_SLUGS);
   });
 
   afterAll(() => {

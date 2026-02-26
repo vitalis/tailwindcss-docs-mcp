@@ -38,6 +38,35 @@ export interface RawMdxFile {
 }
 
 /**
+ * Minimal interface for the subset of Octokit's git API used by the fetcher.
+ * Avoids importing the full Octokit type (which varies by import method).
+ */
+interface OctokitGitApi {
+  rest: {
+    git: {
+      getRef(params: {
+        owner: string;
+        repo: string;
+        ref: string;
+      }): Promise<{ data: { object: { sha: string } } }>;
+      getTree(params: {
+        owner: string;
+        repo: string;
+        tree_sha: string;
+        recursive?: string;
+      }): Promise<{
+        data: { tree: { type?: string; path?: string; sha?: string | null }[] };
+      }>;
+      getBlob(params: {
+        owner: string;
+        repo: string;
+        file_sha: string;
+      }): Promise<{ data: { content: string } }>;
+    };
+  };
+}
+
+/**
  * Fetch Tailwind CSS documentation MDX files from the GitHub repository.
  *
  * Downloads all MDX files from `src/pages/docs/` in the tailwindcss.com repo.
@@ -68,7 +97,7 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
         "Set a personal access token for reliable fetching.",
     );
   }
-  const octokit = new Octokit({ auth: githubToken });
+  const octokit: OctokitGitApi = new Octokit({ auth: githubToken });
 
   // Step 1: Get the git tree recursively to list all files in one API call
   const { data: refData } = await octokit.rest.git.getRef({
@@ -108,8 +137,7 @@ const MAX_CONSECUTIVE_FAILURES = 5;
  * Returns the number of successfully fetched files.
  */
 async function fetchBlobs(
-  // biome-ignore lint/suspicious/noExplicitAny: Octokit type varies by import method
-  octokit: any,
+  octokit: OctokitGitApi,
   files: { sha?: string | null; path?: string }[],
   outputDir: string,
 ): Promise<number> {

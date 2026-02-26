@@ -399,7 +399,7 @@ Browse available utility categories without searching.
     "properties": {
       "category": {
         "type": "string",
-        "description": "Filter by category (e.g., 'layout', 'spacing', 'typography', 'flexbox'). Omit to list all categories."
+        "description": "Filter by category (e.g., 'Layout', 'Spacing', 'Typography', 'Flexbox & Grid'). Omit to list all categories."
       },
       "version": {
         "type": "string",

@@ -15,7 +15,8 @@ describe("Config", () => {
     });
 
     it("defaults to v3 when env var is not set", () => {
-      process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION = undefined;
+      // biome-ignore lint/performance/noDelete: must truly unset env var, not set to "undefined"
+      delete process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION;
       const config = loadConfig();
       expect(config.defaultVersion).toBe("v3");
     });

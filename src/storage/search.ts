@@ -77,6 +77,9 @@ export async function hybridSearch(
   if (chunks.length === 0) return [];
 
   const fetchLimit = limit * CANDIDATE_MULTIPLIER;
+  // keywordSearch is synchronous but wrapped in Promise.all alongside the async
+  // semanticSearch for uniform destructuring. No performance impact — sync
+  // functions in Promise.all resolve in the same microtask.
   const [semantic, keyword] = await Promise.all([
     semanticSearch(embedder, chunks, query, fetchLimit),
     keywordSearch(db, query, version, fetchLimit),
