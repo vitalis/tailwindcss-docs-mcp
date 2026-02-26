@@ -1,4 +1,7 @@
-import type { TailwindVersion } from "../utils/config.js";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
+import type { Config, TailwindVersion } from "../utils/config.js";
+import { GITHUB_REPO, VERSION_BRANCH_MAP } from "../utils/config.js";
 
 /**
  * Options for fetching documentation from GitHub.
@@ -41,20 +44,83 @@ export interface RawMdxFile {
  * Files are cached on disk at `~/.tailwindcss-docs-mcp/raw/{version}/`.
  * Subsequent calls return cached files unless `force: true`.
  */
-export async function fetchDocs(options: FetchOptions): Promise<FetchResult> {
-  // TODO: implement
-  // 1. Check if cached files exist (unless force)
-  // 2. Use octokit to list files in src/pages/docs/
-  // 3. Download each MDX file content
-  // 4. Save to disk at rawDir/{version}/*.mdx
-  // 5. Return fetch result
-  throw new Error("Not implemented");
+export async function fetchDocs(config: Config, options: FetchOptions): Promise<FetchResult> {
+  const { version, force } = options;
+  const outputDir = join(config.rawDir, version);
+
+  // Check cache: if directory exists and has .mdx files, skip unless force
+  if (!force && existsSync(outputDir)) {
+    const cached = readdirSync(outputDir).filter((f) => f.endsWith(".mdx"));
+    if (cached.length > 0) {
+      return { fileCount: cached.length, outputDir, cached: true };
+    }
+  }
+
+  mkdirSync(outputDir, { recursive: true });
+
+  const branch = VERSION_BRANCH_MAP[version];
+  const { Octokit } = await import("octokit");
+  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
+  // Step 1: Get the git tree recursively to list all files in one API call
+  const { data: refData } = await octokit.rest.git.getRef({
+    owner: GITHUB_REPO.owner,
+    repo: GITHUB_REPO.repo,
+    ref: `heads/${branch}`,
+  });
+  const commitSha = refData.object.sha;
+
+  const { data: treeData } = await octokit.rest.git.getTree({
+    owner: GITHUB_REPO.owner,
+    repo: GITHUB_REPO.repo,
+    tree_sha: commitSha,
+    recursive: "true",
+  });
+
+  // Step 2: Filter for MDX files under the docs path
+  const mdxFiles = treeData.tree.filter(
+    (item) =>
+      item.type === "blob" &&
+      item.path?.startsWith(`${GITHUB_REPO.docsPath}/`) &&
+      item.path.endsWith(".mdx"),
+  );
+
+  // Step 3: Fetch each file's content
+  let fetched = 0;
+  for (const file of mdxFiles) {
+    if (!file.sha || !file.path) continue;
+
+    const { data: blobData } = await octokit.rest.git.getBlob({
+      owner: GITHUB_REPO.owner,
+      repo: GITHUB_REPO.repo,
+      file_sha: file.sha,
+    });
+
+    const content = Buffer.from(blobData.content, "base64").toString("utf-8");
+    const filename = basename(file.path);
+    writeFileSync(join(outputDir, filename), content, "utf-8");
+    fetched++;
+  }
+
+  return { fileCount: fetched, outputDir, cached: false };
 }
 
 /**
  * Read cached MDX files from disk for a given version.
  */
-export async function readCachedDocs(version: TailwindVersion): Promise<RawMdxFile[]> {
-  // TODO: implement
-  throw new Error("Not implemented");
+export async function readCachedDocs(
+  config: Config,
+  version: TailwindVersion,
+): Promise<RawMdxFile[]> {
+  const dir = join(config.rawDir, version);
+
+  if (!existsSync(dir)) return [];
+
+  const files = readdirSync(dir).filter((f) => f.endsWith(".mdx"));
+
+  return files.map((filename) => ({
+    slug: basename(filename, ".mdx"),
+    content: readFileSync(join(dir, filename), "utf-8"),
+    path: `${GITHUB_REPO.docsPath}/${filename}`,
+  }));
 }
