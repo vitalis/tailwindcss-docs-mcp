@@ -95,4 +95,4 @@ Inspired by [HexDocs MCP](https://github.com/bradleygolden/hexdocs-mcp), which d
 
 ## License
 
-MIT
+[MIT](LICENSE)
