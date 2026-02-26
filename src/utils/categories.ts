@@ -243,6 +243,7 @@ export function findCategory(name: string): UtilityCategory | undefined {
 
 /**
  * Find which category a doc slug belongs to.
+ * @internal Used only in tests.
  */
 export function categoryForSlug(slug: string): UtilityCategory | undefined {
   return UTILITY_CATEGORIES.find((c) => c.slugs.includes(slug));

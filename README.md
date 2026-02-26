@@ -115,11 +115,10 @@ GitHub → Fetch MDX → Parse → Chunk by heading → Embed (ONNX) → SQLite
 
 ## Configuration
 
-| Variable                            | Default                   | Description                                                                                            |
-| ----------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `TAILWIND_DOCS_MCP_DEFAULT_VERSION` | `v4`                      | Set to `v3` for Tailwind 3.x projects                                                                  |
-| `TAILWIND_DOCS_MCP_PATH`            | `~/.tailwindcss-docs-mcp` | Data directory                                                                                         |
-| `GITHUB_TOKEN`                      | —                         | Recommended. Without it, GitHub API limits you to 60 requests/hour — not enough for a full docs fetch. |
+| Variable                            | Default                   | Description                           |
+| ----------------------------------- | ------------------------- | ------------------------------------- |
+| `TAILWIND_DOCS_MCP_DEFAULT_VERSION` | `v4`                      | Set to `v3` for Tailwind 3.x projects |
+| `TAILWIND_DOCS_MCP_PATH`            | `~/.tailwindcss-docs-mcp` | Data directory                        |
 
 <details>
 <summary>Using with Tailwind CSS v3</summary>

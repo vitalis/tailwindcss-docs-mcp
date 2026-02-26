@@ -32,6 +32,12 @@ export interface FetchDocsResult {
 }
 
 /**
+ * Mutex to serialize concurrent fetch_docs calls.
+ * Prevents deleteOrphanedChunks from racing with inserts from another call.
+ */
+let fetchLock: Promise<void> = Promise.resolve();
+
+/**
  * Handle the `fetch_docs` MCP tool call.
  *
  * Orchestrates the full pipeline:
@@ -43,8 +49,30 @@ export interface FetchDocsResult {
  *
  * Uses content hashing (SHA-256) for incremental re-indexing:
  * unchanged chunks are not re-embedded.
+ *
+ * Serialized: concurrent calls are queued to prevent data corruption.
  */
 export async function handleFetchDocs(
+  input: FetchDocsInput,
+  config: Config,
+  db: Database,
+  embedder: Embedder,
+): Promise<FetchDocsResult> {
+  let releaseLock!: () => void;
+  const acquired = new Promise<void>((resolve) => {
+    releaseLock = resolve;
+  });
+  const prev = fetchLock;
+  fetchLock = acquired;
+  await prev;
+  try {
+    return await doFetchDocs(input, config, db, embedder);
+  } finally {
+    releaseLock();
+  }
+}
+
+async function doFetchDocs(
   input: FetchDocsInput,
   config: Config,
   db: Database,

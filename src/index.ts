@@ -29,6 +29,11 @@ async function main(): Promise<void> {
   // Initialize database
   const db = await createDatabase(config);
 
+  // Ensure database is closed on process exit (WAL checkpoint, release locks)
+  process.on("exit", () => {
+    db.close();
+  });
+
   // Start MCP server immediately (embedder loads in background)
   const server = await createServer({ config, db, embedder: null });
 

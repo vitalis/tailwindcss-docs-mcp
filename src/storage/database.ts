@@ -216,6 +216,8 @@ async function openBunSqlite(dbPath: string): Promise<SqliteDb> {
   db.exec("PRAGMA journal_mode=WAL");
   // Enforce foreign key constraints at the database level
   db.exec("PRAGMA foreign_keys=ON");
+  // Wait up to 5s for locks instead of failing immediately with SQLITE_BUSY
+  db.exec("PRAGMA busy_timeout=5000");
 
   // Cache compiled statements to avoid re-calling db.query() on every operation.
   const stmtCache = new Map<string, BunSqliteStatement>();
@@ -272,6 +274,8 @@ async function openBetterSqlite3(dbPath: string): Promise<SqliteDb> {
   db.pragma("journal_mode=WAL");
   // Enforce foreign key constraints at the database level
   db.pragma("foreign_keys=ON");
+  // Wait up to 5s for locks instead of failing immediately with SQLITE_BUSY
+  db.pragma("busy_timeout=5000");
 
   // Cache compiled statements to avoid re-calling db.prepare() on every operation.
   // Use `any` for the cached statement type because better-sqlite3's Statement
@@ -437,15 +441,21 @@ export async function createDatabase(config: Config): Promise<Database> {
         return result.changes;
       }
 
-      // Build parameterized IN clause for the valid hashes
-      const hashes = [...validHashes];
-      const placeholders = hashes.map(() => "?").join(", ");
-      const result = db.queryRun(
-        `DELETE FROM chunks WHERE doc_id = ? AND content_hash NOT IN (${placeholders})`,
+      // Use fixed SQL strings to avoid statement cache pollution.
+      // A dynamic IN (?, ?, ...) clause creates a unique cached statement
+      // per hash-set size. Instead, SELECT all + delete non-matching individually.
+      const all = db.queryAll<{ id: number; content_hash: string }>(
+        "SELECT id, content_hash FROM chunks WHERE doc_id = ?",
         docId,
-        ...hashes,
       );
-      return result.changes;
+      let deleted = 0;
+      for (const row of all) {
+        if (!validHashes.has(row.content_hash)) {
+          db.queryRun("DELETE FROM chunks WHERE id = ?", row.id);
+          deleted++;
+        }
+      }
+      return deleted;
     },
 
     deleteVersion(version: TailwindVersion): void {

@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  FETCH_CONCURRENCY,
   MAX_CONSECUTIVE_FAILURES,
-  type OctokitGitApi,
-  fetchBlobs,
   fetchDocs,
+  fetchRawFiles,
   readCachedDocs,
 } from "../../src/pipeline/fetcher.js";
 import { testConfig as baseTestConfig } from "../helpers/factories.js";
@@ -27,6 +27,7 @@ describe("Fetcher", () => {
 
   afterEach(() => {
     rmSync(TEST_DIR, { recursive: true, force: true });
+    vi.restoreAllMocks();
   });
 
   describe("readCachedDocs", () => {
@@ -136,39 +137,42 @@ describe("Fetcher", () => {
     });
   });
 
-  describe("fetchBlobs", () => {
-    function createMockOctokit(responses: Map<string, string | Error>): OctokitGitApi {
-      return {
-        rest: {
-          git: {
-            getRef: () => Promise.reject(new Error("not used")),
-            getTree: () => Promise.reject(new Error("not used")),
-            getBlob: ({ file_sha }) => {
-              const response = responses.get(file_sha);
-              if (response instanceof Error) return Promise.reject(response);
-              const content = Buffer.from(response ?? "").toString("base64");
-              return Promise.resolve({ data: { content } });
-            },
-          },
-        },
-      };
+  describe("fetchRawFiles", () => {
+    function matchResponse(
+      url: string,
+      responses: Map<string, string | Error>,
+    ): string | Error | undefined {
+      for (const [pattern, response] of responses) {
+        if (url.includes(pattern)) return response;
+      }
+      return undefined;
     }
 
-    it("fetches all blobs and writes files to disk", async () => {
+    function createMockFetch(responses: Map<string, string | Error>): typeof fetch {
+      return (async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        const matched = matchResponse(url, responses);
+        if (matched instanceof Error) throw matched;
+        if (matched !== undefined) return new Response(matched, { status: 200 });
+        return new Response("Not Found", {
+          status: 404,
+          statusText: "Not Found",
+        });
+      }) as typeof fetch;
+    }
+
+    it("fetches all files and writes to disk", async () => {
       const outputDir = join(TEST_DIR, "blobs");
       mkdirSync(outputDir, { recursive: true });
       const responses = new Map([
-        ["sha1", "padding content"],
-        ["sha2", "margin content"],
+        ["padding.mdx", "padding content"],
+        ["margin.mdx", "margin content"],
       ]);
-      const octokit = createMockOctokit(responses);
+      vi.stubGlobal("fetch", createMockFetch(responses));
 
-      const result = await fetchBlobs(
-        octokit,
-        [
-          { sha: "sha1", path: "src/pages/docs/padding.mdx" },
-          { sha: "sha2", path: "src/pages/docs/margin.mdx" },
-        ],
+      const result = await fetchRawFiles(
+        "next",
+        [{ path: "src/pages/docs/padding.mdx" }, { path: "src/pages/docs/margin.mdx" }],
         outputDir,
       );
 
@@ -178,18 +182,14 @@ describe("Fetcher", () => {
       expect(readFileSync(join(outputDir, "margin.mdx"), "utf-8")).toBe("margin content");
     });
 
-    it("skips files without sha or path", async () => {
+    it("skips files without path", async () => {
       const outputDir = join(TEST_DIR, "blobs");
       mkdirSync(outputDir, { recursive: true });
-      const octokit = createMockOctokit(new Map([["sha1", "content"]]));
+      vi.stubGlobal("fetch", createMockFetch(new Map([["b.mdx", "content"]])));
 
-      const result = await fetchBlobs(
-        octokit,
-        [
-          { sha: null, path: "a.mdx" },
-          { sha: "sha1", path: undefined },
-          { sha: "sha1", path: "b.mdx" },
-        ],
+      const result = await fetchRawFiles(
+        "next",
+        [{ path: undefined }, { path: "src/pages/docs/b.mdx" }],
         outputDir,
       );
 
@@ -201,18 +201,18 @@ describe("Fetcher", () => {
       const outputDir = join(TEST_DIR, "blobs");
       mkdirSync(outputDir, { recursive: true });
       const responses = new Map<string, string | Error>([
-        ["sha1", "ok content"],
-        ["sha2", new Error("network error")],
-        ["sha3", "also ok"],
+        ["a.mdx", "ok content"],
+        ["b.mdx", new Error("network error")],
+        ["c.mdx", "also ok"],
       ]);
-      const octokit = createMockOctokit(responses);
+      vi.stubGlobal("fetch", createMockFetch(responses));
 
-      const result = await fetchBlobs(
-        octokit,
+      const result = await fetchRawFiles(
+        "next",
         [
-          { sha: "sha1", path: "a.mdx" },
-          { sha: "sha2", path: "b.mdx" },
-          { sha: "sha3", path: "c.mdx" },
+          { path: "src/pages/docs/a.mdx" },
+          { path: "src/pages/docs/b.mdx" },
+          { path: "src/pages/docs/c.mdx" },
         ],
         outputDir,
       );
@@ -227,22 +227,20 @@ describe("Fetcher", () => {
     it("aborts after MAX_CONSECUTIVE_FAILURES consecutive errors", async () => {
       const outputDir = join(TEST_DIR, "blobs");
       mkdirSync(outputDir, { recursive: true });
-      // All files fail
-      const responses = new Map<string, string | Error>();
-      const totalFiles = MAX_CONSECUTIVE_FAILURES + 3;
-      const files = [];
-      for (let i = 0; i < totalFiles; i++) {
-        const sha = `sha${i}`;
-        responses.set(sha, new Error("fail"));
-        files.push({ sha, path: `file${i}.mdx` });
-      }
-      const octokit = createMockOctokit(responses);
+      // All files fail — use a mock that always throws
+      vi.stubGlobal("fetch", createMockFetch(new Map<string, string | Error>()));
 
-      const result = await fetchBlobs(octokit, files, outputDir);
+      const totalFiles = MAX_CONSECUTIVE_FAILURES + 3;
+      const files = Array.from({ length: totalFiles }, (_, i) => ({
+        path: `src/pages/docs/file${i}.mdx`,
+      }));
+
+      const result = await fetchRawFiles("next", files, outputDir);
 
       // Should abort after MAX_CONSECUTIVE_FAILURES, not process all files
       expect(result.fetched).toBe(0);
-      expect(result.skipped).toBe(MAX_CONSECUTIVE_FAILURES);
+      expect(result.skipped).toBeLessThanOrEqual(MAX_CONSECUTIVE_FAILURES + FETCH_CONCURRENCY);
+      expect(result.skipped).toBeGreaterThanOrEqual(MAX_CONSECUTIVE_FAILURES);
     });
 
     it("resets consecutive failure count on success", async () => {
@@ -250,24 +248,24 @@ describe("Fetcher", () => {
       mkdirSync(outputDir, { recursive: true });
       // Alternate: fail, fail, success, fail, fail, success — never hits threshold
       const responses = new Map<string, string | Error>([
-        ["s1", new Error("fail")],
-        ["s2", new Error("fail")],
-        ["s3", "ok"],
-        ["s4", new Error("fail")],
-        ["s5", new Error("fail")],
-        ["s6", "ok"],
+        ["a.mdx", new Error("fail")],
+        ["b.mdx", new Error("fail")],
+        ["c.mdx", "ok"],
+        ["d.mdx", new Error("fail")],
+        ["e.mdx", new Error("fail")],
+        ["f.mdx", "ok"],
       ]);
-      const octokit = createMockOctokit(responses);
+      vi.stubGlobal("fetch", createMockFetch(responses));
 
-      const result = await fetchBlobs(
-        octokit,
+      const result = await fetchRawFiles(
+        "next",
         [
-          { sha: "s1", path: "a.mdx" },
-          { sha: "s2", path: "b.mdx" },
-          { sha: "s3", path: "c.mdx" },
-          { sha: "s4", path: "d.mdx" },
-          { sha: "s5", path: "e.mdx" },
-          { sha: "s6", path: "f.mdx" },
+          { path: "src/pages/docs/a.mdx" },
+          { path: "src/pages/docs/b.mdx" },
+          { path: "src/pages/docs/c.mdx" },
+          { path: "src/pages/docs/d.mdx" },
+          { path: "src/pages/docs/e.mdx" },
+          { path: "src/pages/docs/f.mdx" },
         ],
         outputDir,
       );

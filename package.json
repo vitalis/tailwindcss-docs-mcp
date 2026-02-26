@@ -8,9 +8,29 @@
     "tailwindcss-docs-mcp": "./dist/index.js"
   },
   "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "tailwindcss",
+    "mcp",
+    "model-context-protocol",
+    "documentation",
+    "semantic-search"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vitalis/tailwindcss-docs-mcp.git"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "bun run src/index.ts",
@@ -19,13 +39,13 @@
     "lint": "bunx biome check src/",
     "lint:fix": "bunx biome check --write src/",
     "format": "bunx biome format --write src/",
-    "check": "bunx biome check src/ && tsc --noEmit"
+    "check": "bunx biome check src/ && tsc --noEmit",
+    "prepublishOnly": "tsc && chmod +x dist/index.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.4.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "better-sqlite3": "^11.8.1",
-    "octokit": "^4.1.2",
     "zod": "^4.0.0"
   },
   "devDependencies": {

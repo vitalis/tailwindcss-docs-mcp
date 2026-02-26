@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { z } from "zod";
 import type { Embedder } from "./pipeline/embedder.js";
 import type { Database } from "./storage/database.js";
@@ -65,7 +66,7 @@ export const EMBEDDER_STATUS_MESSAGES: Record<EmbedderStatus, string> = {
  * Tools that require the embedder (fetch_docs, search_docs) will throw
  * an error if called before the model has finished loading.
  */
-export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
+export async function createServer(deps: ServerDeps, transport?: Transport): Promise<ServerHandle> {
   const { config, db } = deps;
   let embedder: Embedder | null = deps.embedder;
   let embedderStatus: EmbedderStatus = deps.embedder ? "ready" : "pending";
@@ -75,6 +76,14 @@ export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
       throw new Error(EMBEDDER_STATUS_MESSAGES[embedderStatus]);
     }
     return embedder;
+  }
+
+  function toolError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{ type: "text" as const, text: `Error: ${message}` }],
+      isError: true as const,
+    };
   }
 
   const server = new McpServer({
@@ -94,8 +103,12 @@ export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
         .describe("Force re-download and re-index even if already cached (default: false)"),
     },
     async (params) => {
-      const result = await handleFetchDocs(params, config, db, requireEmbedder());
-      return { content: [{ type: "text" as const, text: result.message }] };
+      try {
+        const result = await handleFetchDocs(params, config, db, requireEmbedder());
+        return { content: [{ type: "text" as const, text: result.message }] };
+      } catch (error) {
+        return toolError(error);
+      }
     },
   );
 
@@ -121,9 +134,13 @@ export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
         .describe("Maximum number of results to return (default: 5)"),
     },
     async (params) => {
-      const result = await handleSearchDocs(params, db, requireEmbedder(), config.defaultVersion);
-      const text = formatSearchResults(result);
-      return { content: [{ type: "text" as const, text }] };
+      try {
+        const result = await handleSearchDocs(params, db, requireEmbedder(), config.defaultVersion);
+        const text = formatSearchResults(result);
+        return { content: [{ type: "text" as const, text }] };
+      } catch (error) {
+        return toolError(error);
+      }
     },
   );
 
@@ -141,9 +158,13 @@ export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
       version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v4)"),
     },
     (params) => {
-      const result = handleListUtilities(params, db, config.defaultVersion);
-      const text = formatUtilitiesList(result);
-      return { content: [{ type: "text" as const, text }] };
+      try {
+        const result = handleListUtilities(params, db, config.defaultVersion);
+        const text = formatUtilitiesList(result);
+        return { content: [{ type: "text" as const, text }] };
+      } catch (error) {
+        return toolError(error);
+      }
     },
   );
 
@@ -158,14 +179,17 @@ export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
         .describe("Check specific version (v3 or v4). Omit to check all."),
     },
     (params) => {
-      const result = handleCheckStatus(params, db, embedderStatus);
-      return { content: [{ type: "text" as const, text: result.message }] };
+      try {
+        const result = handleCheckStatus(params, db, embedderStatus);
+        return { content: [{ type: "text" as const, text: result.message }] };
+      } catch (error) {
+        return toolError(error);
+      }
     },
   );
 
-  // Connect via stdio transport
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  // Connect via provided transport or default to stdio
+  await server.connect(transport ?? new StdioServerTransport());
 
   return {
     setEmbedder(e: Embedder) {
