@@ -1,0 +1,7 @@
+[install]
+# Use exact versions for reproducible installs
+exact = true
+
+[test]
+# Use vitest for testing
+preload = ["./test/setup.ts"]
