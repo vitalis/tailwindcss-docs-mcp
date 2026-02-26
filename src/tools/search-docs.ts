@@ -38,9 +38,9 @@ export async function handleSearchDocs(
   input: SearchDocsInput,
   db: Database,
   embedder: Embedder,
-  defaultVersion?: TailwindVersion,
+  defaultVersion: TailwindVersion,
 ): Promise<SearchDocsResult> {
-  const version = input.version ?? defaultVersion ?? "v3";
+  const version = input.version ?? defaultVersion;
   const limit = Math.min(Math.max(input.limit ?? 5, 1), 20);
 
   // Check if index exists

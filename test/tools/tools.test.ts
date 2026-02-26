@@ -123,7 +123,7 @@ describe("MCP Tool Handlers", () => {
   describe("search_docs", () => {
     it("returns helpful message before indexing", async () => {
       const embedder = createMockEmbedder(384);
-      const result = await handleSearchDocs({ query: "padding" }, db, embedder);
+      const result = await handleSearchDocs({ query: "padding" }, db, embedder, "v3");
       expect(result.notIndexed).toBe(true);
       expect(result.results).toHaveLength(0);
 
@@ -135,7 +135,7 @@ describe("MCP Tool Handlers", () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
       const embedder = createMockEmbedder(384);
 
-      const result = await handleSearchDocs({ query: "padding" }, db, embedder);
+      const result = await handleSearchDocs({ query: "padding" }, db, embedder, "v3");
       expect(result.notIndexed).toBe(false);
       expect(result.results.length).toBeGreaterThan(0);
       expect(result.results[0].docTitle).toBe("Padding");
@@ -146,7 +146,7 @@ describe("MCP Tool Handlers", () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
       const embedder = createMockEmbedder(384);
 
-      const result = await handleSearchDocs({ query: "" }, db, embedder);
+      const result = await handleSearchDocs({ query: "" }, db, embedder, "v3");
       expect(result.results).toHaveLength(0);
     });
 
@@ -154,7 +154,7 @@ describe("MCP Tool Handlers", () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
       const embedder = createMockEmbedder(384);
 
-      const result = await handleSearchDocs({ query: "padding", limit: 1 }, db, embedder);
+      const result = await handleSearchDocs({ query: "padding", limit: 1 }, db, embedder, "v3");
       expect(result.results.length).toBeLessThanOrEqual(1);
     });
 
@@ -179,26 +179,26 @@ describe("MCP Tool Handlers", () => {
 
   describe("list_utilities", () => {
     it("returns all categories without filter", async () => {
-      const result = await handleListUtilities({}, db);
+      const result = await handleListUtilities({}, db, "v3");
       expect(result.categories.length).toBeGreaterThan(10);
     });
 
     it("returns only matching category with filter", async () => {
-      const result = await handleListUtilities({ category: "Spacing" }, db);
+      const result = await handleListUtilities({ category: "Spacing" }, db, "v3");
       expect(result.categories).toHaveLength(1);
       expect(result.categories[0].name).toBe("Spacing");
       expect(result.categories[0].utilities.length).toBeGreaterThan(0);
     });
 
     it("returns empty for unknown category", async () => {
-      const result = await handleListUtilities({ category: "nonexistent" }, db);
+      const result = await handleListUtilities({ category: "nonexistent" }, db, "v3");
       expect(result.categories).toHaveLength(0);
     });
 
     it("enriches with indexed doc data when available", async () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
 
-      const result = await handleListUtilities({ category: "Spacing" }, db);
+      const result = await handleListUtilities({ category: "Spacing" }, db, "v3");
       const paddingEntry = result.categories[0].utilities.find((u) => u.url.includes("padding"));
       expect(paddingEntry).toBeDefined();
       expect(paddingEntry?.title).toBe("Padding");
@@ -262,7 +262,7 @@ describe("MCP Tool Handlers", () => {
       expect(result2.chunkCount).toBeGreaterThan(0);
     });
 
-    it("re-embeds all chunks when force is true", async () => {
+    it("preserves chunk count when re-indexing same content", async () => {
       // Test the force re-embedding behavior by indexing directly
       // (force on fetchDocs would hit GitHub, so we test the pipeline part)
       await indexTestDoc(db, config, PADDING_MDX, "padding");

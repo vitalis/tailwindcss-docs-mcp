@@ -12,7 +12,7 @@ import type { Config } from "./utils/config.js";
 
 const { version: SERVER_VERSION } = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
-);
+) as { version: string };
 
 /**
  * MCP tool names exposed by this server.

@@ -60,7 +60,15 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
 
   const branch = VERSION_BRANCH_MAP[version];
   const { Octokit } = await import("octokit");
-  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
+  const githubToken = process.env.GITHUB_TOKEN;
+  if (!githubToken) {
+    console.warn(
+      "[tailwindcss-docs-mcp] GITHUB_TOKEN not set. API requests may be rate-limited. " +
+        "Set a personal access token for reliable fetching.",
+    );
+  }
+  const octokit = new Octokit({ auth: githubToken });
 
   // Step 1: Get the git tree recursively to list all files in one API call
   const { data: refData } = await octokit.rest.git.getRef({
@@ -87,19 +95,33 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
 
   // Fetch blobs sequentially to respect GitHub API rate limits.
   let fetched = 0;
+  let skipped = 0;
   for (const file of mdxFiles) {
     if (!file.sha || !file.path) continue;
 
-    const { data: blobData } = await octokit.rest.git.getBlob({
-      owner: GITHUB_REPO.owner,
-      repo: GITHUB_REPO.repo,
-      file_sha: file.sha,
-    });
+    try {
+      const { data: blobData } = await octokit.rest.git.getBlob({
+        owner: GITHUB_REPO.owner,
+        repo: GITHUB_REPO.repo,
+        file_sha: file.sha,
+      });
 
-    const content = Buffer.from(blobData.content, "base64").toString("utf-8");
-    const filename = basename(file.path);
-    writeFileSync(join(outputDir, filename), content, "utf-8");
-    fetched++;
+      const content = Buffer.from(blobData.content, "base64").toString("utf-8");
+      const filename = basename(file.path);
+      writeFileSync(join(outputDir, filename), content, "utf-8");
+      fetched++;
+    } catch (error) {
+      skipped++;
+      console.warn(
+        `[tailwindcss-docs-mcp] Failed to fetch ${file.path}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  if (skipped > 0) {
+    console.warn(
+      `[tailwindcss-docs-mcp] Skipped ${skipped} of ${mdxFiles.length} files due to fetch errors.`,
+    );
   }
 
   return { fileCount: fetched, outputDir, cached: false };

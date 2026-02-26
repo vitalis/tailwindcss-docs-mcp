@@ -97,7 +97,7 @@ Download the raw MDX documentation files from GitHub.
 
 **Source**: `https://github.com/tailwindlabs/tailwindcss.com`
 **Path**: `src/pages/docs/*.mdx` (~189 files)
-**Method**: GitHub API (`GET /repos/{owner}/{repo}/contents/{path}`) or `git clone --depth 1 --sparse`
+**Method**: GitHub Git Tree API (`git.getRef` → `git.getTree` → `git.getBlob`)
 
 ```typescript
 interface FetchOptions {
@@ -110,10 +110,10 @@ interface FetchOptions {
 
 **Version mapping**:
 
-| Tailwind Version | Branch     | Docs path         |
-| ---------------- | ---------- | ----------------- |
-| v3 (current)     | `master`   | `src/pages/docs/` |
-| v4 (next)        | Check repo | `src/pages/docs/` |
+| Tailwind Version | Branch   | Docs path         |
+| ---------------- | -------- | ----------------- |
+| v3 (current)     | `master` | `src/pages/docs/` |
+| v4 (next)        | `next`   | `src/pages/docs/` |
 
 **Cache**: Store fetched MDX files on disk. Re-fetch only when `force: true` or when a new version tag is detected via GitHub API.
 
@@ -148,14 +148,24 @@ module.exports = { ... }
 **Parser strategy**:
 
 ```typescript
-function parseMdx(raw: string): CleanDocument {
-  return pipe(raw, [
-    stripFrontmatter, // extract title, description → metadata
-    stripImportStatements, // remove `import ... from ...` lines
-    stripJsxComponents, // remove <Component> tags, keep inner text
-    normalizeCodeBlocks, // strip {{ filename: '...' }} metadata
-    preserveMarkdownStructure, // keep headings, lists, code, links
-  ]);
+function parseMdx(
+  raw: string,
+  slug: string,
+  version: TailwindVersion,
+): CleanDocument {
+  // Sequential regex pipeline — each stage removes one MDX pattern
+  const cleaned = collapseBlankLines(
+    normalizeCodeBlocks(
+      stripJsxComponents(
+        stripExportStatements(
+          stripImportStatements(
+            stripFrontmatter(raw), // extract title, description → metadata
+          ), // remove `import ... from ...` lines
+        ), // remove `export default/const ...` lines
+      ), // remove <Component> tags, keep inner text
+    ), // strip {{ filename: '...' }} metadata
+  ); // collapse excessive blank lines
+  // ...
 }
 ```
 
@@ -234,7 +244,7 @@ Persist chunks and embeddings in plain SQLite. No vector extensions.
 
 ```sql
 -- Metadata
-CREATE TABLE docs (
+CREATE TABLE IF NOT EXISTS docs (
   id INTEGER PRIMARY KEY,
   slug TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -246,7 +256,7 @@ CREATE TABLE docs (
 );
 
 -- Chunks with text content and embeddings
-CREATE TABLE chunks (
+CREATE TABLE IF NOT EXISTS chunks (
   id INTEGER PRIMARY KEY,
   doc_id INTEGER NOT NULL REFERENCES docs(id),
   heading TEXT NOT NULL,
@@ -260,7 +270,7 @@ CREATE TABLE chunks (
 
 -- Full-text search for keyword queries (exact class names like px-4, grid-cols-3)
 -- tokenchars '-' preserves hyphens so "px-4" is a single token, not "px" + "4"
-CREATE VIRTUAL TABLE chunks_fts USING fts5(
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
   heading, content,
   content='chunks',
   content_rowid='id',
@@ -268,7 +278,7 @@ CREATE VIRTUAL TABLE chunks_fts USING fts5(
 );
 
 -- Index status
-CREATE TABLE index_status (
+CREATE TABLE IF NOT EXISTS index_status (
   version TEXT PRIMARY KEY,
   doc_count INTEGER,
   chunk_count INTEGER,
@@ -551,11 +561,15 @@ For Node.js users, replace `"command": "bunx"` with `"command": "npx"` and `"arg
 Prepend metadata to improve retrieval:
 
 ```typescript
-function buildEmbeddingInput(chunk: Chunk): string {
+function buildEmbeddingInput(
+  docTitle: string,
+  heading: string,
+  content: string,
+): string {
   return [
-    `Tailwind CSS: ${chunk.docTitle}`, // library context
-    chunk.heading, // section context
-    chunk.content, // actual content
+    `Tailwind CSS: ${docTitle}`, // library context
+    heading, // section context
+    content, // actual content
   ].join("\n\n");
 }
 ```

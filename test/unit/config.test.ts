@@ -7,7 +7,8 @@ describe("Config", () => {
 
     afterEach(() => {
       if (originalVersion === undefined) {
-        process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION = undefined;
+        // biome-ignore lint/performance/noDelete: must truly unset env var, not set to "undefined"
+        delete process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION;
       } else {
         process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION = originalVersion;
       }

@@ -71,6 +71,6 @@ beforeAll(() => {
 
 afterAll(() => {
   // Cleanup
-  // Bun treats `= undefined` as key deletion (equivalent to `delete`)
-  process.env.TAILWIND_DOCS_MCP_PATH = undefined;
+  // biome-ignore lint/performance/noDelete: must truly unset env var, not set to "undefined"
+  delete process.env.TAILWIND_DOCS_MCP_PATH;
 });

@@ -3,11 +3,21 @@ import type { TailwindVersion } from "../utils/config.js";
 import { cosineSimilarity } from "../utils/similarity.js";
 import { type ChunkRow, type Database, blobToEmbedding } from "./database.js";
 
+/** Log a performance warning when brute-force search exceeds this many chunks. */
+const BRUTE_FORCE_WARN_THRESHOLD = 5000;
+
+/** Multiplier applied to the requested limit for each search strategy.
+ *  Fetching more candidates from each strategy improves fusion quality. */
+const CANDIDATE_MULTIPLIER = 2;
+
+/** Standard RRF constant. Higher values reduce the impact of rank differences. */
+const RRF_K = 60;
+
 /**
  * A search result with score and metadata.
  */
 export interface SearchResult {
-  /** Combined relevance score (0-1) */
+  /** Combined relevance score, normalized so the top result = 1.0 */
   score: number;
   /** Chunk heading breadcrumb */
   heading: string;
@@ -59,16 +69,14 @@ export async function hybridSearch(
   if (!query.trim()) return [];
 
   const chunks = db.getAllChunksWithEmbeddings(version);
-  if (chunks.length > 5000) {
+  if (chunks.length > BRUTE_FORCE_WARN_THRESHOLD) {
     console.warn(
       `[tailwindcss-docs-mcp] ${chunks.length} chunks loaded for brute-force semantic search. Consider optimizing for large corpora.`,
     );
   }
   if (chunks.length === 0) return [];
 
-  // Fetch 2x the requested limit from each strategy to improve fusion quality.
-  // A higher multiplier would improve recall at the cost of more computation.
-  const fetchLimit = limit * 2;
+  const fetchLimit = limit * CANDIDATE_MULTIPLIER;
   const [semantic, keyword] = await Promise.all([
     semanticSearch(embedder, chunks, query, fetchLimit),
     keywordSearch(db, query, version, fetchLimit),
@@ -76,10 +84,13 @@ export async function hybridSearch(
 
   const fused = fuseResults(semantic, keyword, limit);
 
+  // Normalize fused scores to 0-1 range (top result = 1.0)
+  const maxScore = fused[0]?.fusedScore || 1;
+
   return fused.map((scored) => {
     const doc = db.getDocById(scored.chunk.doc_id);
     return {
-      score: scored.fusedScore,
+      score: maxScore > 0 ? scored.fusedScore / maxScore : 0,
       heading: scored.chunk.heading,
       content: scored.chunk.content,
       url: scored.chunk.url,
@@ -103,16 +114,18 @@ export async function semanticSearch(
   const queryEmbedding = await embedder.embed(query, { isQuery: true });
 
   return chunks
-    .filter((c) => c.embedding !== null)
-    .map((chunk) => {
-      const chunkEmbedding = blobToEmbedding(chunk.embedding as Buffer);
+    .flatMap((chunk) => {
+      if (chunk.embedding === null) return [];
+      const chunkEmbedding = blobToEmbedding(chunk.embedding);
       const score = cosineSimilarity(queryEmbedding, chunkEmbedding);
-      return {
-        chunk,
-        semanticScore: score,
-        keywordScore: 0,
-        fusedScore: score,
-      };
+      return [
+        {
+          chunk,
+          semanticScore: score,
+          keywordScore: 0,
+          fusedScore: score,
+        },
+      ];
     })
     .sort((a, b) => b.semanticScore - a.semanticScore)
     .slice(0, limit);
@@ -134,7 +147,8 @@ export function keywordSearch(
   return ftsChunks.map((chunk, index) => ({
     chunk,
     semanticScore: 0,
-    // Assign decreasing scores based on FTS rank order
+    // keywordScore reflects FTS5 rank order for inspection/debugging.
+    // It is NOT used in fusion — RRF uses position-based ranks instead.
     keywordScore: 1 / (index + 1),
     fusedScore: 0,
   }));
@@ -154,13 +168,12 @@ export function fuseResults(
   keywordResults: ScoredChunk[],
   limit: number,
 ): ScoredChunk[] {
-  const K = 60;
   const chunkMap = new Map<number, ScoredChunk>();
 
   // Assign semantic RRF scores (1-indexed ranks)
   for (let i = 0; i < semanticResults.length; i++) {
     const rank = i + 1;
-    const rrf = 1 / (K + rank);
+    const rrf = 1 / (RRF_K + rank);
     const { chunk } = semanticResults[i];
     const entry: ScoredChunk = chunkMap.get(chunk.id) ?? {
       chunk,
@@ -176,7 +189,7 @@ export function fuseResults(
   // Assign keyword RRF scores
   for (let i = 0; i < keywordResults.length; i++) {
     const rank = i + 1;
-    const rrf = 1 / (K + rank);
+    const rrf = 1 / (RRF_K + rank);
     const { chunk } = keywordResults[i];
     const entry: ScoredChunk = chunkMap.get(chunk.id) ?? {
       chunk,
