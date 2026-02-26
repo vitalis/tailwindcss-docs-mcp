@@ -4,7 +4,7 @@ Local semantic search for Tailwind CSS documentation via Model Context Protocol.
 
 ## Architecture
 
-Full architecture document: `~/Development/docs/tailwindcss-docs-mcp-architecture.md`
+Full architecture document: `docs/architecture.md`
 
 ## Stack
 
