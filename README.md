@@ -51,6 +51,19 @@ claude mcp add tailwindcss-docs-mcp -- npx -y tailwindcss-docs-mcp
   "mcpServers": {
     "tailwindcss-docs-mcp": {
       "command": "npx",
+      "args": ["-y", "tailwindcss-docs-mcp"]
+    }
+  }
+}
+```
+
+Defaults to Tailwind CSS v4. For v3 projects, set the `TAILWIND_DOCS_MCP_DEFAULT_VERSION` environment variable:
+
+```json
+{
+  "mcpServers": {
+    "tailwindcss-docs-mcp": {
+      "command": "npx",
       "args": ["-y", "tailwindcss-docs-mcp"],
       "env": {
         "TAILWIND_DOCS_MCP_DEFAULT_VERSION": "v3"
