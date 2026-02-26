@@ -1,58 +1,19 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  type ChunkRow,
+  type Database,
+  createDatabase,
+  embeddingToBlob,
+} from "../../src/storage/database.js";
+import {
+  type ScoredChunk,
   fuseResults,
   hybridSearch,
   keywordSearch,
   semanticSearch,
-  type ScoredChunk,
 } from "../../src/storage/search.js";
-import {
-  createDatabase,
-  embeddingToBlob,
-  type ChunkRow,
-  type Database,
-} from "../../src/storage/database.js";
-import type { Config } from "../../src/utils/config.js";
-import type { CleanDocument } from "../../src/pipeline/parser.js";
-import type { Chunk } from "../../src/pipeline/chunker.js";
+import { makeChunk, makeDoc, testConfig } from "../helpers/factories.js";
 import { createMockEmbedder } from "../setup.js";
-
-function testConfig(): Config {
-  return {
-    dataDir: "/tmp/test",
-    dbPath: ":memory:",
-    rawDir: "/tmp/test/raw",
-    defaultVersion: "v3",
-    embeddingModel: "test-model",
-    embeddingDimensions: 384,
-    queryPrefix: "test: ",
-  };
-}
-
-function makeDoc(overrides?: Partial<CleanDocument>): CleanDocument {
-  return {
-    slug: "padding",
-    title: "Padding",
-    description: "Utilities for controlling padding.",
-    content: "## Padding\n\nAdd padding to any element.",
-    url: "https://tailwindcss.com/docs/padding",
-    version: "v3",
-    ...overrides,
-  };
-}
-
-function makeChunk(overrides?: Partial<Chunk>): Chunk {
-  return {
-    id: "abc123hash",
-    docSlug: "padding",
-    heading: "## Basic usage",
-    content: "Use `p-4` for 1rem padding on all sides.",
-    url: "https://tailwindcss.com/docs/padding#basic-usage",
-    version: "v3",
-    tokenCount: 12,
-    ...overrides,
-  };
-}
 
 function makeFakeEmbedding(seed = 42, dims = 384): Float32Array {
   const vec = new Float32Array(dims);
@@ -83,11 +44,7 @@ function makeChunkRow(overrides?: Partial<ChunkRow>): ChunkRow {
   };
 }
 
-function makeScoredChunk(
-  id: number,
-  semanticScore: number,
-  keywordScore = 0,
-): ScoredChunk {
+function makeScoredChunk(id: number, semanticScore: number, keywordScore = 0): ScoredChunk {
   return {
     chunk: makeChunkRow({ id }),
     semanticScore,
@@ -122,11 +79,7 @@ describe("Search", () => {
     });
 
     it("respects limit", () => {
-      const semantic = [
-        makeScoredChunk(1, 0.9),
-        makeScoredChunk(2, 0.8),
-        makeScoredChunk(3, 0.7),
-      ];
+      const semantic = [makeScoredChunk(1, 0.9), makeScoredChunk(2, 0.8), makeScoredChunk(3, 0.7)];
 
       const fused = fuseResults(semantic, [], 2);
       expect(fused).toHaveLength(2);
@@ -156,9 +109,7 @@ describe("Search", () => {
 
       const fused = fuseResults(semantic, keyword, 10);
       for (let i = 1; i < fused.length; i++) {
-        expect(fused[i - 1].fusedScore).toBeGreaterThanOrEqual(
-          fused[i].fusedScore,
-        );
+        expect(fused[i - 1].fusedScore).toBeGreaterThanOrEqual(fused[i].fusedScore);
       }
     });
   });
@@ -189,9 +140,7 @@ describe("Search", () => {
 
       // Results should be sorted by semanticScore descending
       for (let i = 1; i < results.length; i++) {
-        expect(results[i - 1].semanticScore).toBeGreaterThanOrEqual(
-          results[i].semanticScore,
-        );
+        expect(results[i - 1].semanticScore).toBeGreaterThanOrEqual(results[i].semanticScore);
       }
     });
 
@@ -281,18 +230,10 @@ describe("Search", () => {
 
     it("respects version filter", () => {
       const v3DocId = db.upsertDoc(makeDoc({ version: "v3" }));
-      db.upsertChunk(
-        makeChunk({ id: "v3-h", content: "padding utilities v3" }),
-        v3DocId,
-        null,
-      );
+      db.upsertChunk(makeChunk({ id: "v3-h", content: "padding utilities v3" }), v3DocId, null);
 
       const v4DocId = db.upsertDoc(makeDoc({ slug: "padding", version: "v4" }));
-      db.upsertChunk(
-        makeChunk({ id: "v4-h", content: "padding utilities v4" }),
-        v4DocId,
-        null,
-      );
+      db.upsertChunk(makeChunk({ id: "v4-h", content: "padding utilities v4" }), v4DocId, null);
 
       const v3Results = keywordSearch(db, "padding", "v3", 10);
       const v4Results = keywordSearch(db, "padding", "v4", 10);
@@ -308,11 +249,7 @@ describe("Search", () => {
 
     it("assigns decreasing keyword scores", () => {
       const docId = db.upsertDoc(makeDoc());
-      db.upsertChunk(
-        makeChunk({ id: "h1", content: "padding padding padding" }),
-        docId,
-        null,
-      );
+      db.upsertChunk(makeChunk({ id: "h1", content: "padding padding padding" }), docId, null);
       db.upsertChunk(
         makeChunk({
           id: "h2",
@@ -324,11 +261,8 @@ describe("Search", () => {
       );
 
       const results = keywordSearch(db, "padding", "v3", 10);
-      if (results.length >= 2) {
-        expect(results[0].keywordScore).toBeGreaterThan(
-          results[1].keywordScore,
-        );
-      }
+      expect(results.length).toBeGreaterThanOrEqual(2);
+      expect(results[0].keywordScore).toBeGreaterThan(results[1].keywordScore);
     });
   });
 
@@ -348,11 +282,7 @@ describe("Search", () => {
       const docId = db.upsertDoc(makeDoc());
 
       const emb = await embedder.embed("padding basics");
-      db.upsertChunk(
-        makeChunk({ id: "h1", content: "Use p-4 for padding." }),
-        docId,
-        emb,
-      );
+      db.upsertChunk(makeChunk({ id: "h1", content: "Use p-4 for padding." }), docId, emb);
 
       const results = await hybridSearch(db, embedder, {
         query: "padding",

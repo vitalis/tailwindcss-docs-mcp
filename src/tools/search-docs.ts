@@ -16,6 +16,14 @@ export interface SearchDocsInput {
 }
 
 /**
+ * Result from the search_docs handler, including metadata about index state.
+ */
+export interface SearchDocsResult {
+  results: SearchResult[];
+  notIndexed: boolean;
+}
+
+/**
  * Handle the `search_docs` MCP tool call.
  *
  * Performs hybrid semantic + keyword search:
@@ -30,21 +38,24 @@ export async function handleSearchDocs(
   input: SearchDocsInput,
   db: Database,
   embedder: Embedder,
-): Promise<SearchResult[]> {
-  const version = input.version ?? "v3";
+  defaultVersion?: TailwindVersion,
+): Promise<SearchDocsResult> {
+  const version = input.version ?? defaultVersion ?? "v3";
   const limit = Math.min(Math.max(input.limit ?? 5, 1), 20);
 
   // Check if index exists
   const status = db.getIndexStatus(version);
   if (status.length === 0) {
-    return [];
+    return { results: [], notIndexed: true };
   }
 
-  return hybridSearch(db, embedder, {
+  const results = await hybridSearch(db, embedder, {
     query: input.query,
     version,
     limit,
   });
+
+  return { results, notIndexed: false };
 }
 
 /**
@@ -55,15 +66,19 @@ export async function handleSearchDocs(
  * - Content snippet
  * - Deep link to tailwindcss.com
  */
-export function formatSearchResults(results: SearchResult[]): string {
-  if (results.length === 0) {
-    return "No results found. Make sure the index has been built with fetch_docs.";
+export function formatSearchResults(result: SearchDocsResult): string {
+  if (result.notIndexed) {
+    return "Index not built for this version. Run fetch_docs first.";
+  }
+
+  if (result.results.length === 0) {
+    return "No results found for this query.";
   }
 
   const lines: string[] = [];
 
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
+  for (let i = 0; i < result.results.length; i++) {
+    const r = result.results[i];
     lines.push(`## ${i + 1}. ${r.docTitle} — ${r.heading}`);
     lines.push(`[View on tailwindcss.com](${r.url})\n`);
     lines.push(r.content);

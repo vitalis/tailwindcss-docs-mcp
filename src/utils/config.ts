@@ -46,9 +46,13 @@ export const GITHUB_REPO = {
 /**
  * Load configuration from environment variables with defaults.
  */
+const VALID_VERSIONS = new Set<string>(["v3", "v4"]);
+
 export function loadConfig(): Config {
   const dataDir = process.env.TAILWIND_DOCS_MCP_PATH ?? join(homedir(), ".tailwindcss-docs-mcp");
-  const defaultVersion = (process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION as TailwindVersion) ?? "v3";
+  const envVersion = process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION;
+  const defaultVersion: TailwindVersion =
+    envVersion && VALID_VERSIONS.has(envVersion) ? (envVersion as TailwindVersion) : "v3";
 
   return {
     dataDir,

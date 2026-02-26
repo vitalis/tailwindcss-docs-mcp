@@ -123,40 +123,40 @@ describe("Hybrid Search Fusion", () => {
     const semanticChunkIds = new Set(semanticOnly.map((s) => s.chunk.id));
     const sharedIds = [...keywordChunkIds].filter((id) => semanticChunkIds.has(id));
 
-    if (sharedIds.length > 0) {
-      // Get hybrid results
-      const hybridResults = await hybridSearch(db, embedder, {
-        query: "padding",
-        version: "v3",
-        limit: 10,
-      });
+    expect(sharedIds.length).toBeGreaterThan(0);
 
-      // Among hybrid results, chunks appearing in both strategies should have
-      // higher scores than chunks appearing in only one strategy
-      const sharedIdSet = new Set(sharedIds);
+    // Get hybrid results
+    const hybridResults = await hybridSearch(db, embedder, {
+      query: "padding",
+      version: "v3",
+      limit: 10,
+    });
 
-      // Find a result that was in both lists and one that was only in one
-      // We look up by content since we can't access chunk.id directly from SearchResult
-      const sharedResults = hybridResults.filter((r) => {
-        // Check if this result's content matches a keyword result that's also a semantic result
-        const matchingKeyword = keywordOnly.find((k) => k.chunk.content === r.content);
-        return matchingKeyword && sharedIdSet.has(matchingKeyword.chunk.id);
-      });
+    // Among hybrid results, chunks appearing in both strategies should have
+    // higher scores than chunks appearing in only one strategy
+    const sharedIdSet = new Set(sharedIds);
 
-      const singleStrategyResults = hybridResults.filter((r) => {
-        const matchingKeyword = keywordOnly.find((k) => k.chunk.content === r.content);
-        if (matchingKeyword && sharedIdSet.has(matchingKeyword.chunk.id)) return false;
-        return true;
-      });
+    // Find a result that was in both lists and one that was only in one
+    // We look up by content since we can't access chunk.id directly from SearchResult
+    const sharedResults = hybridResults.filter((r) => {
+      // Check if this result's content matches a keyword result that's also a semantic result
+      const matchingKeyword = keywordOnly.find((k) => k.chunk.content === r.content);
+      return matchingKeyword && sharedIdSet.has(matchingKeyword.chunk.id);
+    });
 
-      if (sharedResults.length > 0 && singleStrategyResults.length > 0) {
-        const bestShared = Math.max(...sharedResults.map((r) => r.score));
-        const worstShared = Math.min(...sharedResults.map((r) => r.score));
-        // At minimum, the best shared result should score higher than some single-strategy results
-        const someSingleLower = singleStrategyResults.some((r) => r.score < bestShared);
-        expect(someSingleLower).toBe(true);
-      }
-    }
+    const singleStrategyResults = hybridResults.filter((r) => {
+      const matchingKeyword = keywordOnly.find((k) => k.chunk.content === r.content);
+      if (matchingKeyword && sharedIdSet.has(matchingKeyword.chunk.id)) return false;
+      return true;
+    });
+
+    expect(sharedResults.length).toBeGreaterThan(0);
+    expect(singleStrategyResults.length).toBeGreaterThan(0);
+
+    const bestShared = Math.max(...sharedResults.map((r) => r.score));
+    // At minimum, the best shared result should score higher than some single-strategy results
+    const someSingleLower = singleStrategyResults.some((r) => r.score < bestShared);
+    expect(someSingleLower).toBe(true);
   });
 
   it("returns empty results for empty query", async () => {

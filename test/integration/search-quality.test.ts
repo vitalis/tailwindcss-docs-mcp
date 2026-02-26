@@ -90,15 +90,13 @@ describe("Search Quality", () => {
     expect(darkModeResults.length).toBeGreaterThan(0);
   });
 
-  it("finds padding docs for exact class 'px-4' keyword", () => {
-    // FTS5 keyword search should match the literal class name in content.
-    // FTS5 tokenizes on hyphens, so "px-4" becomes tokens "px" and "4".
-    // Searching for "px" should find padding docs.
-    const results = keywordSearch(db, "px", "v3", 10);
+  it("finds padding docs for exact hyphenated class keyword", () => {
+    // With tokenchars="-", FTS5 treats "pt-6" as a single token
+    const results = keywordSearch(db, "pt-6", "v3", 10);
 
     expect(results.length).toBeGreaterThan(0);
     // Verify the matched chunks come from the padding doc
-    const paddingChunks = results.filter((r) => r.chunk.content.toLowerCase().includes("px"));
+    const paddingChunks = results.filter((r) => r.chunk.content.toLowerCase().includes("pt-6"));
     expect(paddingChunks.length).toBeGreaterThan(0);
   });
 

@@ -69,8 +69,8 @@ export async function createServer(deps: ServerDeps): Promise<void> {
       limit: z.number().min(1).max(20).optional().describe("Maximum number of results to return"),
     },
     async (params) => {
-      const results = await handleSearchDocs(params, db, embedder);
-      const text = formatSearchResults(results);
+      const result = await handleSearchDocs(params, db, embedder, config.defaultVersion);
+      const text = formatSearchResults(result);
       return { content: [{ type: "text" as const, text }] };
     },
   );

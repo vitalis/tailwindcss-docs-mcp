@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  cosineSimilarity,
-  rankBySimilarity,
-} from "../../src/utils/similarity.js";
+import { cosineSimilarity, rankBySimilarity } from "../../src/utils/similarity.js";
 
 describe("Cosine Similarity", () => {
   describe("cosineSimilarity", () => {
@@ -47,6 +44,12 @@ describe("Cosine Similarity", () => {
       // Manual calculation: dot=0.32, magA=sqrt(0.14), magB=sqrt(0.77)
       const expected = 0.32 / (Math.sqrt(0.14) * Math.sqrt(0.77));
       expect(Math.abs(result - expected)).toBeLessThan(1e-5);
+    });
+
+    it("throws on mismatched vector lengths", () => {
+      const a = new Float32Array([1, 0, 0]);
+      const b = new Float32Array([1, 0]);
+      expect(() => cosineSimilarity(a, b)).toThrow("Vector length mismatch");
     });
   });
 

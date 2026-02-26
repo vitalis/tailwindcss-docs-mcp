@@ -23,7 +23,10 @@ export const FIXTURES_DIR = new URL("./fixtures/mdx", import.meta.url).pathname;
  */
 export function createMockEmbedder(dimensions = 384) {
   return {
-    async embed(text: string): Promise<Float32Array> {
+    async embed(
+      text: string,
+      _options?: import("../src/pipeline/embedder.js").EmbedOptions,
+    ): Promise<Float32Array> {
       // Generate a deterministic vector based on text hash
       const vector = new Float32Array(dimensions);
       let hash = 0;
@@ -68,5 +71,5 @@ beforeAll(() => {
 
 afterAll(() => {
   // Cleanup
-  delete process.env.TAILWIND_DOCS_MCP_PATH;
+  process.env.TAILWIND_DOCS_MCP_PATH = undefined;
 });

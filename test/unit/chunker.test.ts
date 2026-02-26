@@ -23,8 +23,7 @@ describe("Chunker", () => {
   describe("chunkDocument", () => {
     it("splits on ## headings", () => {
       const doc = makeDoc({
-        content:
-          "## Basic usage\n\nUse `p-*`.\n\n## Responsive\n\nUse breakpoints.",
+        content: "## Basic usage\n\nUse `p-*`.\n\n## Responsive\n\nUse breakpoints.",
       });
       const chunks = chunkDocument(doc);
       expect(chunks).toHaveLength(2);
@@ -42,7 +41,7 @@ describe("Chunker", () => {
     });
 
     it("never splits code blocks", () => {
-      const codeBlock = "```js\n" + "const x = 1;\n".repeat(50) + "```";
+      const codeBlock = `\`\`\`js\n${"const x = 1;\n".repeat(50)}\`\`\``;
       const doc = makeDoc({
         content: `## Section\n\nSome text.\n\n${codeBlock}`,
       });
@@ -63,9 +62,7 @@ describe("Chunker", () => {
       const breadcrumbs = chunks.map((c) => c.heading);
       expect(
         breadcrumbs.some(
-          (b) =>
-            b.includes("## Basic usage") &&
-            b.includes("### Horizontal padding"),
+          (b) => b.includes("## Basic usage") && b.includes("### Horizontal padding"),
         ),
       ).toBe(true);
     });
@@ -88,9 +85,7 @@ describe("Chunker", () => {
         content: "## Basic usage\n\nUse padding.",
       });
       const chunks = chunkDocument(doc);
-      expect(chunks[0].url).toBe(
-        "https://tailwindcss.com/docs/padding#basic-usage",
-      );
+      expect(chunks[0].url).toBe("https://tailwindcss.com/docs/padding#basic-usage");
     });
 
     it("handles documents with no headings", () => {
@@ -151,9 +146,7 @@ describe("Chunker", () => {
     });
 
     it("handles ### headings", () => {
-      expect(headingToAnchor("### Adding horizontal padding")).toBe(
-        "adding-horizontal-padding",
-      );
+      expect(headingToAnchor("### Adding horizontal padding")).toBe("adding-horizontal-padding");
     });
 
     it("removes special characters", () => {

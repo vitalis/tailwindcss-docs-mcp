@@ -1,34 +1,17 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "vitest";
-import type { Database } from "../../src/storage/database.js";
-import { createDatabase } from "../../src/storage/database.js";
-import type { Config } from "../../src/utils/config.js";
-import { createMockEmbedder } from "../setup.js";
-import {
-  handleCheckStatus,
-  formatStatus,
-} from "../../src/tools/check-status.js";
-import { handleFetchDocs } from "../../src/tools/fetch-docs.js";
-import {
-  handleListUtilities,
-  formatUtilitiesList,
-} from "../../src/tools/list-utilities.js";
-import {
-  handleSearchDocs,
-  formatSearchResults,
-} from "../../src/tools/search-docs.js";
-import { parseMdx } from "../../src/pipeline/parser.js";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { chunkDocument } from "../../src/pipeline/chunker.js";
 import { buildEmbeddingInput } from "../../src/pipeline/embedder.js";
+import { parseMdx } from "../../src/pipeline/parser.js";
+import type { Database } from "../../src/storage/database.js";
+import { createDatabase } from "../../src/storage/database.js";
+import { formatStatus, handleCheckStatus } from "../../src/tools/check-status.js";
+import { handleFetchDocs } from "../../src/tools/fetch-docs.js";
+import { formatUtilitiesList, handleListUtilities } from "../../src/tools/list-utilities.js";
+import { formatSearchResults, handleSearchDocs } from "../../src/tools/search-docs.js";
+import type { Config } from "../../src/utils/config.js";
+import { createMockEmbedder } from "../setup.js";
 
 const TEST_DIR = "/tmp/tailwindcss-docs-mcp-tools-test";
 
@@ -72,23 +55,14 @@ Use the \`px-*\` utilities to control horizontal padding.
 /**
  * Index a test document into the database using the full pipeline.
  */
-async function indexTestDoc(
-  db: Database,
-  config: Config,
-  mdxContent: string,
-  slug: string,
-) {
+async function indexTestDoc(db: Database, config: Config, mdxContent: string, slug: string) {
   const embedder = createMockEmbedder(384);
   const doc = parseMdx(mdxContent, slug, "v3");
   const docId = db.upsertDoc(doc);
   const chunks = chunkDocument(doc);
 
   for (const chunk of chunks) {
-    const embeddingInput = buildEmbeddingInput(
-      doc.title,
-      chunk.heading,
-      chunk.content,
-    );
+    const embeddingInput = buildEmbeddingInput(doc.title, chunk.heading, chunk.content);
     const embedding = await embedder.embed(embeddingInput);
     db.upsertChunk(chunk, docId, embedding);
   }
@@ -121,12 +95,7 @@ describe("MCP Tool Handlers", () => {
     });
 
     it("returns correct counts after indexing", async () => {
-      const { chunkCount } = await indexTestDoc(
-        db,
-        config,
-        PADDING_MDX,
-        "padding",
-      );
+      const { chunkCount } = await indexTestDoc(db, config, PADDING_MDX, "padding");
 
       const result = await handleCheckStatus({ version: "v3" }, db);
       expect(result.indexed).toBe(true);
@@ -161,61 +130,54 @@ describe("MCP Tool Handlers", () => {
   describe("search_docs", () => {
     it("returns helpful message before indexing", async () => {
       const embedder = createMockEmbedder(384);
-      const results = await handleSearchDocs(
-        { query: "padding" },
-        db,
-        embedder,
-      );
-      expect(results).toHaveLength(0);
+      const result = await handleSearchDocs({ query: "padding" }, db, embedder);
+      expect(result.notIndexed).toBe(true);
+      expect(result.results).toHaveLength(0);
 
-      const formatted = formatSearchResults(results);
-      expect(formatted).toContain("No results found");
+      const formatted = formatSearchResults(result);
+      expect(formatted).toContain("Index not built");
     });
 
     it("returns search results for valid query", async () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
       const embedder = createMockEmbedder(384);
 
-      const results = await handleSearchDocs(
-        { query: "padding" },
-        db,
-        embedder,
-      );
-      expect(results.length).toBeGreaterThan(0);
-      expect(results[0].docTitle).toBe("Padding");
-      expect(results[0].url).toContain("tailwindcss.com");
+      const result = await handleSearchDocs({ query: "padding" }, db, embedder);
+      expect(result.notIndexed).toBe(false);
+      expect(result.results.length).toBeGreaterThan(0);
+      expect(result.results[0].docTitle).toBe("Padding");
+      expect(result.results[0].url).toContain("tailwindcss.com");
     });
 
     it("returns empty results for empty query", async () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
       const embedder = createMockEmbedder(384);
 
-      const results = await handleSearchDocs({ query: "" }, db, embedder);
-      expect(results).toHaveLength(0);
+      const result = await handleSearchDocs({ query: "" }, db, embedder);
+      expect(result.results).toHaveLength(0);
     });
 
     it("respects limit param", async () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
       const embedder = createMockEmbedder(384);
 
-      const results = await handleSearchDocs(
-        { query: "padding", limit: 1 },
-        db,
-        embedder,
-      );
-      expect(results.length).toBeLessThanOrEqual(1);
+      const result = await handleSearchDocs({ query: "padding", limit: 1 }, db, embedder);
+      expect(result.results.length).toBeLessThanOrEqual(1);
     });
 
     it("formats search results as markdown", () => {
-      const formatted = formatSearchResults([
-        {
-          score: 0.9,
-          heading: "## Basic usage",
-          content: "Use `p-4` for padding.",
-          url: "https://tailwindcss.com/docs/padding#basic-usage",
-          docTitle: "Padding",
-        },
-      ]);
+      const formatted = formatSearchResults({
+        results: [
+          {
+            score: 0.9,
+            heading: "## Basic usage",
+            content: "Use `p-4` for padding.",
+            url: "https://tailwindcss.com/docs/padding#basic-usage",
+            docTitle: "Padding",
+          },
+        ],
+        notIndexed: false,
+      });
       expect(formatted).toContain("Padding");
       expect(formatted).toContain("Basic usage");
       expect(formatted).toContain("tailwindcss.com");
@@ -244,14 +206,10 @@ describe("MCP Tool Handlers", () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
 
       const result = await handleListUtilities({ category: "Spacing" }, db);
-      const paddingEntry = result.categories[0].utilities.find((u) =>
-        u.url.includes("padding"),
-      );
+      const paddingEntry = result.categories[0].utilities.find((u) => u.url.includes("padding"));
       expect(paddingEntry).toBeDefined();
       expect(paddingEntry?.title).toBe("Padding");
-      expect(paddingEntry?.description).toBe(
-        "Utilities for controlling an element's padding.",
-      );
+      expect(paddingEntry?.description).toBe("Utilities for controlling an element's padding.");
     });
 
     it("formats utilities list as markdown", () => {
@@ -285,12 +243,7 @@ describe("MCP Tool Handlers", () => {
       writeFileSync(join(dir, "padding.mdx"), PADDING_MDX, "utf-8");
 
       const embedder = createMockEmbedder(384);
-      const result = await handleFetchDocs(
-        { version: "v3" },
-        config,
-        db,
-        embedder,
-      );
+      const result = await handleFetchDocs({ version: "v3" }, config, db, embedder);
 
       expect(result.docCount).toBe(1);
       expect(result.chunkCount).toBeGreaterThan(0);
@@ -306,21 +259,11 @@ describe("MCP Tool Handlers", () => {
       const embedder = createMockEmbedder(384);
 
       // First run
-      const result1 = await handleFetchDocs(
-        { version: "v3" },
-        config,
-        db,
-        embedder,
-      );
+      const result1 = await handleFetchDocs({ version: "v3" }, config, db, embedder);
       expect(result1.docCount).toBe(1);
 
       // Second run — should not re-embed
-      const result2 = await handleFetchDocs(
-        { version: "v3" },
-        config,
-        db,
-        embedder,
-      );
+      const result2 = await handleFetchDocs({ version: "v3" }, config, db, embedder);
       expect(result2.docCount).toBe(1);
       // Chunks should still be there
       expect(result2.chunkCount).toBeGreaterThan(0);

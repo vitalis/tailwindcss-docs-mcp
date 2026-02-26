@@ -10,8 +10,7 @@ import {
 describe("MDX Parser", () => {
   describe("stripFrontmatter", () => {
     it("extracts title and description from frontmatter", () => {
-      const input =
-        '---\ntitle: "Padding"\ndescription: "Utilities for padding"\n---\n\n## Usage';
+      const input = '---\ntitle: "Padding"\ndescription: "Utilities for padding"\n---\n\n## Usage';
       const result = stripFrontmatter(input);
       expect(result.frontmatter.title).toBe("Padding");
       expect(result.frontmatter.description).toBe("Utilities for padding");
@@ -23,9 +22,7 @@ describe("MDX Parser", () => {
         "---\ntitle: Dark Mode\ndescription: Using Tailwind CSS in dark mode.\n---\n\nContent";
       const result = stripFrontmatter(input);
       expect(result.frontmatter.title).toBe("Dark Mode");
-      expect(result.frontmatter.description).toBe(
-        "Using Tailwind CSS in dark mode.",
-      );
+      expect(result.frontmatter.description).toBe("Using Tailwind CSS in dark mode.");
     });
 
     it("handles files with only frontmatter", () => {
@@ -50,8 +47,7 @@ describe("MDX Parser", () => {
     });
 
     it("strips default imports", () => {
-      const input =
-        "import utilities from 'utilities?plugin=padding'\n\nContent";
+      const input = "import utilities from 'utilities?plugin=padding'\n\nContent";
       expect(stripImportStatements(input).trim()).toBe("Content");
     });
 
@@ -84,16 +80,14 @@ describe("MDX Parser", () => {
     });
 
     it("extracts text from JSX wrappers with props", () => {
-      const input =
-        "<TipInfo>The `selector` strategy replaced the `class` strategy.</TipInfo>";
+      const input = "<TipInfo>The `selector` strategy replaced the `class` strategy.</TipInfo>";
       expect(stripJsxComponents(input).trim()).toBe(
         "The `selector` strategy replaced the `class` strategy.",
       );
     });
 
     it("strips nested JSX components", () => {
-      const input =
-        "<SnippetGroup><Snippet>inner content</Snippet></SnippetGroup>";
+      const input = "<SnippetGroup><Snippet>inner content</Snippet></SnippetGroup>";
       expect(stripJsxComponents(input).trim()).toBe("inner content");
     });
 
@@ -115,11 +109,8 @@ describe("MDX Parser", () => {
     });
 
     it("strips code block filename metadata", () => {
-      const input =
-        "```js {{ filename: 'tailwind.config.js' }}\nmodule.exports = {}\n```";
-      expect(normalizeCodeBlocks(input)).toBe(
-        "```js\nmodule.exports = {}\n```",
-      );
+      const input = "```js {{ filename: 'tailwind.config.js' }}\nmodule.exports = {}\n```";
+      expect(normalizeCodeBlocks(input)).toBe("```js\nmodule.exports = {}\n```");
     });
 
     it("strips code block example metadata", () => {
@@ -128,16 +119,12 @@ describe("MDX Parser", () => {
     });
 
     it("strips metadata from diff-js blocks", () => {
-      const input =
-        "```diff-js {{ filename: 'tailwind.config.js' }}\n+  darkMode: 'selector'\n```";
-      expect(normalizeCodeBlocks(input)).toBe(
-        "```diff-js\n+  darkMode: 'selector'\n```",
-      );
+      const input = "```diff-js {{ filename: 'tailwind.config.js' }}\n+  darkMode: 'selector'\n```";
+      expect(normalizeCodeBlocks(input)).toBe("```diff-js\n+  darkMode: 'selector'\n```");
     });
 
     it("handles complex metadata objects", () => {
-      const input =
-        "```html {{ example: { p: 'none' } }}\n<div>test</div>\n```";
+      const input = "```html {{ example: { p: 'none' } }}\n<div>test</div>\n```";
       expect(normalizeCodeBlocks(input)).toBe("```html\n<div>test</div>\n```");
     });
   });

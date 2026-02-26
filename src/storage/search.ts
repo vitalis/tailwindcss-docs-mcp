@@ -59,13 +59,18 @@ export async function hybridSearch(
   if (!query.trim()) return [];
 
   const chunks = db.getAllChunksWithEmbeddings(version);
+  if (chunks.length > 5000) {
+    console.warn(
+      `[tailwindcss-docs-mcp] ${chunks.length} chunks loaded for brute-force semantic search. Consider optimizing for large corpora.`,
+    );
+  }
   if (chunks.length === 0) return [];
 
   // Run both search strategies — fetch 2x limit for better fusion
   const fetchLimit = limit * 2;
   const [semantic, keyword] = await Promise.all([
     semanticSearch(embedder, chunks, query, fetchLimit),
-    Promise.resolve(keywordSearch(db, query, version, fetchLimit)),
+    keywordSearch(db, query, version, fetchLimit),
   ]);
 
   const fused = fuseResults(semantic, keyword, limit);

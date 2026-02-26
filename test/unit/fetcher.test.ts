@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readCachedDocs } from "../../src/pipeline/fetcher.js";
+import { fetchDocs, readCachedDocs } from "../../src/pipeline/fetcher.js";
 import type { Config } from "../../src/utils/config.js";
 
 const TEST_DIR = "/tmp/tailwindcss-docs-mcp-fetcher-test";
@@ -39,16 +39,8 @@ describe("Fetcher", () => {
       const dir = join(config.rawDir, "v3");
       mkdirSync(dir, { recursive: true });
 
-      writeFileSync(
-        join(dir, "padding.mdx"),
-        "---\ntitle: Padding\n---\n\n## Usage",
-        "utf-8",
-      );
-      writeFileSync(
-        join(dir, "margin.mdx"),
-        "---\ntitle: Margin\n---\n\n## Usage",
-        "utf-8",
-      );
+      writeFileSync(join(dir, "padding.mdx"), "---\ntitle: Padding\n---\n\n## Usage", "utf-8");
+      writeFileSync(join(dir, "margin.mdx"), "---\ntitle: Margin\n---\n\n## Usage", "utf-8");
 
       const result = await readCachedDocs(config, "v3");
       expect(result).toHaveLength(2);
@@ -73,8 +65,7 @@ describe("Fetcher", () => {
       const dir = join(config.rawDir, "v3");
       mkdirSync(dir, { recursive: true });
 
-      const content =
-        "---\ntitle: Padding\n---\n\n## Basic usage\n\nUse `p-4`.";
+      const content = "---\ntitle: Padding\n---\n\n## Basic usage\n\nUse `p-4`.";
       writeFileSync(join(dir, "padding.mdx"), content, "utf-8");
 
       const result = await readCachedDocs(config, "v3");
@@ -113,11 +104,7 @@ describe("Fetcher", () => {
       for (const version of ["v3", "v4"] as const) {
         const dir = join(config.rawDir, version);
         mkdirSync(dir, { recursive: true });
-        writeFileSync(
-          join(dir, `padding-${version}.mdx`),
-          `${version} content`,
-          "utf-8",
-        );
+        writeFileSync(join(dir, `padding-${version}.mdx`), `${version} content`, "utf-8");
       }
 
       const v3 = await readCachedDocs(config, "v3");
@@ -127,6 +114,22 @@ describe("Fetcher", () => {
       expect(v3[0].slug).toBe("padding-v3");
       expect(v4).toHaveLength(1);
       expect(v4[0].slug).toBe("padding-v4");
+    });
+  });
+
+  describe("fetchDocs", () => {
+    it("returns cached result when files exist and force is false", async () => {
+      const config = testConfig();
+      const dir = join(config.rawDir, "v3");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "padding.mdx"), "---\ntitle: Padding\n---\ncontent", "utf-8");
+      writeFileSync(join(dir, "margin.mdx"), "---\ntitle: Margin\n---\ncontent", "utf-8");
+
+      const result = await fetchDocs(config, { version: "v3", force: false });
+
+      expect(result.cached).toBe(true);
+      expect(result.fileCount).toBe(2);
+      expect(result.outputDir).toBe(dir);
     });
   });
 });

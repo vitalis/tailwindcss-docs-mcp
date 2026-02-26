@@ -1,64 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  type Database,
+  blobToEmbedding,
   createDatabase,
   embeddingToBlob,
-  blobToEmbedding,
-  type Database,
 } from "../../src/storage/database.js";
-import type { Config } from "../../src/utils/config.js";
-import type { CleanDocument } from "../../src/pipeline/parser.js";
-import type { Chunk } from "../../src/pipeline/chunker.js";
-
-/** Minimal in-memory config for tests. */
-function testConfig(): Config {
-  return {
-    dataDir: "/tmp/test",
-    dbPath: ":memory:",
-    rawDir: "/tmp/test/raw",
-    defaultVersion: "v3",
-    embeddingModel: "test-model",
-    embeddingDimensions: 384,
-    queryPrefix: "test: ",
-  };
-}
-
-/** Factory for a test document. */
-function makeDoc(overrides?: Partial<CleanDocument>): CleanDocument {
-  return {
-    slug: "padding",
-    title: "Padding",
-    description: "Utilities for controlling padding.",
-    content: "## Padding\n\nAdd padding to any element.",
-    url: "https://tailwindcss.com/docs/padding",
-    version: "v3",
-    ...overrides,
-  };
-}
-
-/** Factory for a test chunk. */
-function makeChunk(overrides?: Partial<Chunk>): Chunk {
-  return {
-    id: "abc123hash",
-    docSlug: "padding",
-    heading: "## Basic usage",
-    content: "Use `p-4` for 1rem padding on all sides.",
-    url: "https://tailwindcss.com/docs/padding#basic-usage",
-    version: "v3",
-    tokenCount: 12,
-    ...overrides,
-  };
-}
-
-/** Create a deterministic 384-dim Float32Array from a seed. */
-function makeFakeEmbedding(seed = 42, dims = 384): Float32Array {
-  const vec = new Float32Array(dims);
-  let val = seed;
-  for (let i = 0; i < dims; i++) {
-    val = (val * 1103515245 + 12345) | 0;
-    vec[i] = (val & 0x7fffffff) / 0x7fffffff;
-  }
-  return vec;
-}
+import { makeChunk, makeDoc, makeFakeEmbedding, testConfig } from "../helpers/factories.js";
 
 describe("Storage / Database", () => {
   let db: Database;
@@ -219,23 +166,12 @@ describe("Storage / Database", () => {
       const docId = db.upsertDoc(makeDoc());
 
       db.upsertChunk(makeChunk({ id: "keep-1" }), docId, null);
-      db.upsertChunk(
-        makeChunk({ id: "keep-2", heading: "## Other" }),
-        docId,
-        null,
-      );
-      db.upsertChunk(
-        makeChunk({ id: "orphan-1", heading: "## Orphan" }),
-        docId,
-        null,
-      );
+      db.upsertChunk(makeChunk({ id: "keep-2", heading: "## Other" }), docId, null);
+      db.upsertChunk(makeChunk({ id: "orphan-1", heading: "## Orphan" }), docId, null);
 
       expect(db.getChunksForDoc(docId)).toHaveLength(3);
 
-      const deleted = db.deleteOrphanedChunks(
-        docId,
-        new Set(["keep-1", "keep-2"]),
-      );
+      const deleted = db.deleteOrphanedChunks(docId, new Set(["keep-1", "keep-2"]));
       expect(deleted).toBe(1);
       expect(db.getChunksForDoc(docId)).toHaveLength(2);
 
@@ -272,11 +208,7 @@ describe("Storage / Database", () => {
       const embedding = makeFakeEmbedding();
 
       db.upsertChunk(makeChunk({ id: "with-emb" }), docId, embedding);
-      db.upsertChunk(
-        makeChunk({ id: "without-emb", heading: "## No emb" }),
-        docId,
-        null,
-      );
+      db.upsertChunk(makeChunk({ id: "without-emb", heading: "## No emb" }), docId, null);
 
       const withEmbeddings = db.getAllChunksWithEmbeddings("v3");
       expect(withEmbeddings).toHaveLength(1);
@@ -292,11 +224,7 @@ describe("Storage / Database", () => {
 
       try {
         const docId = db2.upsertDoc(makeDoc());
-        db2.upsertChunk(
-          makeChunk({ content: "Use px-4 for horizontal padding." }),
-          docId,
-          null,
-        );
+        db2.upsertChunk(makeChunk({ content: "Use px-4 for horizontal padding." }), docId, null);
 
         // FTS5 match query — getAllChunksWithEmbeddings won't help here
         // because we need FTS specifically. We test that after inserting
@@ -405,6 +333,20 @@ describe("Storage / Database", () => {
       expect(recovered.length).toBe(original.length);
       for (let i = 0; i < original.length; i++) {
         expect(recovered[i]).toBe(original[i]);
+      }
+    });
+
+    it("handles Float32Array views with non-zero byteOffset", () => {
+      const largeBuffer = new ArrayBuffer(384 * 4 + 16);
+      const view = new Float32Array(largeBuffer, 16, 384);
+      for (let i = 0; i < 384; i++) view[i] = i * 0.001;
+
+      const blob = embeddingToBlob(view);
+      const recovered = blobToEmbedding(blob);
+
+      expect(recovered.length).toBe(384);
+      for (let i = 0; i < 384; i++) {
+        expect(recovered[i]).toBeCloseTo(view[i], 6);
       }
     });
   });

@@ -9,6 +9,9 @@
  * Returns 0 if either vector has zero magnitude.
  */
 export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
+  if (a.length !== b.length) {
+    throw new Error(`Vector length mismatch: ${a.length} vs ${b.length}`);
+  }
   let dot = 0;
   let magA = 0;
   let magB = 0;

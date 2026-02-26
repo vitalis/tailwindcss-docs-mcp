@@ -123,7 +123,8 @@ CREATE TABLE IF NOT EXISTS chunks (
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
   heading, content,
   content='chunks',
-  content_rowid='id'
+  content_rowid='id',
+  tokenize = "unicode61 tokenchars '-'"
 );
 
 -- Index status
@@ -444,6 +445,14 @@ export async function createDatabase(config: Config): Promise<Database> {
 
     searchFts(query: string, version: TailwindVersion, limit: number): ChunkRow[] {
       try {
+        // Escape FTS5 special characters by double-quoting each token
+        const escaped = query
+          .split(/\s+/)
+          .filter((t) => t.length > 0)
+          .map((t) => `"${t.replace(/"/g, '""')}"`)
+          .join(" ");
+        if (!escaped) return [];
+
         return db.queryAll<ChunkRow>(
           `SELECT c.* FROM chunks_fts f
            JOIN chunks c ON c.id = f.rowid
@@ -451,7 +460,7 @@ export async function createDatabase(config: Config): Promise<Database> {
            WHERE chunks_fts MATCH ? AND d.version = ?
            ORDER BY bm25(chunks_fts)
            LIMIT ?`,
-          query,
+          escaped,
           version,
           limit,
         );
@@ -471,7 +480,7 @@ export async function createDatabase(config: Config): Promise<Database> {
  * Convert a Float32Array to a Buffer for BLOB storage.
  */
 export function embeddingToBlob(embedding: Float32Array): Buffer {
-  return Buffer.from(embedding.buffer);
+  return Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength);
 }
 
 /**

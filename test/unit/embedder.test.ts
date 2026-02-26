@@ -5,14 +5,8 @@ import { createMockEmbedder } from "../setup.js";
 describe("Embedder", () => {
   describe("buildEmbeddingInput", () => {
     it("prepends doc title and heading to content", () => {
-      const result = buildEmbeddingInput(
-        "Padding",
-        "## Basic usage",
-        "Use `p-*` utilities.",
-      );
-      expect(result).toBe(
-        "Tailwind CSS: Padding\n\n## Basic usage\n\nUse `p-*` utilities.",
-      );
+      const result = buildEmbeddingInput("Padding", "## Basic usage", "Use `p-*` utilities.");
+      expect(result).toBe("Tailwind CSS: Padding\n\n## Basic usage\n\nUse `p-*` utilities.");
     });
 
     it("handles empty heading", () => {
@@ -77,11 +71,7 @@ describe("Embedder", () => {
   describe("embedBatch (mock)", () => {
     it("embeds multiple texts in one call", async () => {
       const embedder = createMockEmbedder(384);
-      const results = await embedder.embedBatch([
-        "text one",
-        "text two",
-        "text three",
-      ]);
+      const results = await embedder.embedBatch(["text one", "text two", "text three"]);
       expect(results).toHaveLength(3);
       for (const vec of results) {
         expect(vec).toBeInstanceOf(Float32Array);
