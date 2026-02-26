@@ -16,7 +16,7 @@ Local semantic search for Tailwind CSS documentation via Model Context Protocol.
 ## Quality Commands
 
 ```bash
-bun test                    # Run all tests
+bun run test                # Run all tests
 bun run build               # TypeScript compilation
 bunx biome check src/       # Lint + format check
 bunx biome check --write src/ # Auto-fix lint/format

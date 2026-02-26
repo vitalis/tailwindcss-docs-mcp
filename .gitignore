@@ -9,14 +9,13 @@ dist/
 .env.local
 .env.*.local
 
-# SQLite databases
+# SQLite databases (runtime data lives in ~/.tailwindcss-docs-mcp/)
 *.db
 *.db-journal
 *.db-wal
 
-# ONNX model cache
-.cache/
-onnx_models/
+# Coverage
+coverage/
 
 # OS files
 .DS_Store
@@ -27,9 +26,3 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
-
-# Bun
-bun.lockb
-
-# Coverage
-coverage/
