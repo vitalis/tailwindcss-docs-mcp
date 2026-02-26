@@ -53,7 +53,7 @@ claude mcp add tailwindcss-docs-mcp -- npx -y tailwindcss-docs-mcp
       "command": "npx",
       "args": ["-y", "tailwindcss-docs-mcp"],
       "env": {
-        "TAILWIND_DOCS_MCP_DEFAULT_VERSION": "v4"
+        "TAILWIND_DOCS_MCP_DEFAULT_VERSION": "v3"
       }
     }
   }
@@ -74,7 +74,7 @@ Download and index Tailwind CSS documentation. Run once per version. Re-run with
 
 | Parameter | Type             | Default | Description                             |
 | --------- | ---------------- | ------- | --------------------------------------- |
-| `version` | `"v3"` \| `"v4"` | `"v3"`  | Tailwind CSS major version              |
+| `version` | `"v3"` \| `"v4"` | `"v4"`  | Tailwind CSS major version              |
 | `force`   | `boolean`        | `false` | Re-download and re-index even if cached |
 
 The pipeline: download MDX from GitHub → strip JSX/imports → split on headings → embed with ONNX model → store in SQLite. Unchanged chunks are skipped on re-index (SHA-256 content hashing).
@@ -86,7 +86,7 @@ Search documentation using natural language. Returns relevant snippets with code
 | Parameter | Type             | Default      | Description                    |
 | --------- | ---------------- | ------------ | ------------------------------ |
 | `query`   | `string`         | _(required)_ | Natural language query         |
-| `version` | `"v3"` \| `"v4"` | `"v3"`       | Tailwind CSS version to search |
+| `version` | `"v3"` \| `"v4"` | `"v4"`       | Tailwind CSS version to search |
 | `limit`   | `number`         | `5`          | Max results (1-20)             |
 
 Each result includes:
@@ -105,7 +105,7 @@ Browse available utility categories and their documentation pages.
 | Parameter  | Type             | Default | Description                                                            |
 | ---------- | ---------------- | ------- | ---------------------------------------------------------------------- |
 | `category` | `string`         | _(all)_ | Filter by category (e.g., `"Layout"`, `"Spacing"`, `"Flexbox & Grid"`) |
-| `version`  | `"v3"` \| `"v4"` | `"v3"`  | Tailwind CSS version                                                   |
+| `version`  | `"v3"` \| `"v4"` | `"v4"`  | Tailwind CSS version                                                   |
 
 ### `check_status`
 
@@ -127,11 +127,11 @@ No manual model management is required. Model files are cached in `~/.tailwindcs
 
 ## Configuration
 
-| Environment Variable                | Default                   | Description                                                     |
-| ----------------------------------- | ------------------------- | --------------------------------------------------------------- |
-| `TAILWIND_DOCS_MCP_PATH`            | `~/.tailwindcss-docs-mcp` | Data directory                                                  |
-| `TAILWIND_DOCS_MCP_DEFAULT_VERSION` | `v3`                      | Default Tailwind version                                        |
-| `GITHUB_TOKEN`                      | _(none)_                  | Optional. Prevents GitHub API rate limiting during `fetch_docs` |
+| Environment Variable                | Default                   | Description                                                      |
+| ----------------------------------- | ------------------------- | ---------------------------------------------------------------- |
+| `TAILWIND_DOCS_MCP_PATH`            | `~/.tailwindcss-docs-mcp` | Data directory                                                   |
+| `TAILWIND_DOCS_MCP_DEFAULT_VERSION` | `v4`                      | Default Tailwind version (set to `v3` for Tailwind 3.x projects) |
+| `GITHUB_TOKEN`                      | _(none)_                  | Optional. Prevents GitHub API rate limiting during `fetch_docs`  |
 
 **Data directory:**
 
@@ -140,7 +140,7 @@ No manual model management is required. Model files are cached in `~/.tailwindcs
 ├── docs.db              # SQLite database (~3 MB) — chunks, embeddings, FTS5 index
 ├── models/              # Cached ONNX model files (~27 MB)
 └── raw/
-    └── v3/*.mdx         # Cached MDX files from GitHub
+    └── v4/*.mdx         # Cached MDX files from GitHub
 ```
 
 ## How It Works

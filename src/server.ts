@@ -87,7 +87,7 @@ export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
     TOOL_NAMES.FETCH_DOCS,
     "Download and index Tailwind CSS documentation for local semantic search. Only needs to be run once per version. Re-run with force=true to refresh.",
     {
-      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v3)"),
+      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v4)"),
       force: z
         .boolean()
         .optional()
@@ -112,7 +112,7 @@ export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
       version: z
         .enum(["v3", "v4"])
         .optional()
-        .describe("Tailwind CSS major version to search (default: v3)"),
+        .describe("Tailwind CSS major version to search (default: v4)"),
       limit: z
         .number()
         .min(1)
@@ -138,7 +138,7 @@ export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
         .describe(
           "Filter by category (e.g., 'Layout', 'Spacing', 'Typography', 'Flexbox & Grid'). Omit to list all categories.",
         ),
-      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v3)"),
+      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v4)"),
     },
     (params) => {
       const result = handleListUtilities(params, db, config.defaultVersion);

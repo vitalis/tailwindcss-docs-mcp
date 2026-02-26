@@ -16,7 +16,7 @@ export function testConfig(overrides?: Partial<Config>): Config {
     dataDir,
     dbPath: ":memory:",
     rawDir: `${dataDir}/raw`,
-    defaultVersion: "v3",
+    defaultVersion: "v4",
     embeddingModel: "test-model",
     embeddingDimensions: 384,
     queryPrefix: "test: ",

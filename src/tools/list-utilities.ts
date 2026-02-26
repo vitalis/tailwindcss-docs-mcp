@@ -8,7 +8,7 @@ import type { TailwindVersion } from "../utils/config.js";
 export interface ListUtilitiesInput {
   /** Filter by category name (e.g., "layout", "spacing", "typography"). Omit to list all. */
   category?: string;
-  /** Tailwind CSS major version (default: "v3") */
+  /** Tailwind CSS major version (default: "v4") */
   version?: TailwindVersion;
 }
 

@@ -11,7 +11,7 @@ import type { Config, TailwindVersion } from "../utils/config.js";
  * Input parameters for the fetch_docs MCP tool.
  */
 export interface FetchDocsInput {
-  /** Tailwind CSS major version (default: "v3") */
+  /** Tailwind CSS major version (default: "v4") */
   version?: TailwindVersion;
   /** Force re-download and re-index even if already cached (default: false) */
   force?: boolean;

@@ -14,23 +14,23 @@ describe("Config", () => {
       }
     });
 
-    it("defaults to v3 when env var is not set", () => {
+    it("defaults to v4 when env var is not set", () => {
       // biome-ignore lint/performance/noDelete: must truly unset env var, not set to "undefined"
       delete process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION;
-      const config = loadConfig();
-      expect(config.defaultVersion).toBe("v3");
-    });
-
-    it("accepts v4 from env var", () => {
-      process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION = "v4";
       const config = loadConfig();
       expect(config.defaultVersion).toBe("v4");
     });
 
-    it("falls back to v3 for invalid version", () => {
-      process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION = "v99";
+    it("accepts v3 from env var", () => {
+      process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION = "v3";
       const config = loadConfig();
       expect(config.defaultVersion).toBe("v3");
+    });
+
+    it("falls back to v4 for invalid version", () => {
+      process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION = "v99";
+      const config = loadConfig();
+      expect(config.defaultVersion).toBe("v4");
     });
 
     it("derives dbPath and rawDir from dataDir", () => {

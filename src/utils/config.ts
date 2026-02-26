@@ -54,7 +54,7 @@ export function loadConfig(): Config {
   const dataDir = process.env.TAILWIND_DOCS_MCP_PATH ?? join(homedir(), ".tailwindcss-docs-mcp");
   const envVersion = process.env.TAILWIND_DOCS_MCP_DEFAULT_VERSION;
   const defaultVersion: TailwindVersion =
-    envVersion && VALID_VERSIONS.has(envVersion) ? (envVersion as TailwindVersion) : "v3";
+    envVersion && VALID_VERSIONS.has(envVersion) ? (envVersion as TailwindVersion) : "v4";
 
   return {
     dataDir,

@@ -9,7 +9,7 @@ import type { TailwindVersion } from "../utils/config.js";
 export interface SearchDocsInput {
   /** Natural language search query */
   query: string;
-  /** Tailwind CSS major version to search (default: "v3") */
+  /** Tailwind CSS major version to search (default: "v4") */
   version?: TailwindVersion;
   /** Maximum number of results (default: 5, min: 1, max: 20) */
   limit?: number;
