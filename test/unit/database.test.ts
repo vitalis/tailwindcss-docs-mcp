@@ -77,6 +77,18 @@ describe("Storage / Database", () => {
       const result = db.getDoc("nonexistent", "v3");
       expect(result).toBeUndefined();
     });
+
+    it("retrieves doc by id", () => {
+      const docId = db.upsertDoc(makeDoc());
+
+      const found = db.getDocById(docId);
+      expect(found).toBeDefined();
+      expect(found?.id).toBe(docId);
+      expect(found?.slug).toBe("padding");
+
+      const notFound = db.getDocById(999999);
+      expect(notFound).toBeUndefined();
+    });
   });
 
   describe("chunk operations", () => {

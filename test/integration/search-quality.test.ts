@@ -125,4 +125,28 @@ describe("Search Quality", () => {
       }
     }
   });
+
+  it("scores are normalized: top result = 1.0, all in [0, 1]", async () => {
+    const queries = ["padding", "grid", "dark mode"];
+
+    for (const query of queries) {
+      const results = await hybridSearch(db, embedder, {
+        query,
+        version: "v3",
+        limit: 10,
+      });
+
+      expect(results.length).toBeGreaterThan(0);
+
+      // Top result should be normalized to 1.0
+      expect(results[0].score).toBeCloseTo(1.0, 5);
+
+      for (const result of results) {
+        // All scores must be finite numbers in [0, 1]
+        expect(Number.isFinite(result.score)).toBe(true);
+        expect(result.score).toBeGreaterThanOrEqual(0);
+        expect(result.score).toBeLessThanOrEqual(1);
+      }
+    }
+  });
 });

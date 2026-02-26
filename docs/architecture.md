@@ -153,19 +153,24 @@ function parseMdx(
   slug: string,
   version: TailwindVersion,
 ): CleanDocument {
+  // stripFrontmatter returns { frontmatter, content } — not a plain string
+  const { frontmatter, content: afterFrontmatter } = stripFrontmatter(raw);
+
   // Sequential regex pipeline — each stage removes one MDX pattern
-  const cleaned = collapseBlankLines(
-    normalizeCodeBlocks(
-      stripJsxComponents(
-        stripExportStatements(
-          stripImportStatements(
-            stripFrontmatter(raw), // extract title, description → metadata
-          ), // remove `import ... from ...` lines
-        ), // remove `export default/const ...` lines
-      ), // remove <Component> tags, keep inner text
-    ), // strip {{ filename: '...' }} metadata
-  ); // collapse excessive blank lines
-  // ...
+  let content = stripImportStatements(afterFrontmatter);
+  content = stripExportStatements(content);
+  content = stripJsxComponents(content);
+  content = normalizeCodeBlocks(content);
+  content = collapseBlankLines(content);
+
+  return {
+    slug,
+    title: frontmatter.title,
+    description: frontmatter.description,
+    content,
+    url,
+    version,
+  };
 }
 ```
 
@@ -365,7 +370,7 @@ Semantic search across indexed Tailwind CSS documentation.
 
 ```typescript
 interface SearchResult {
-  score: number; // cosine similarity (0-1)
+  score: number; // combined relevance score, normalized so top result = 1.0
   heading: string; // chunk heading breadcrumb
   content: string; // chunk content (clean markdown)
   url: string; // deep link to tailwindcss.com
@@ -782,15 +787,19 @@ test/
 │ └── mdx/ # Real MDX snippets from Tailwind docs
 │ ├── padding.mdx
 │ ├── dark-mode.mdx
-│ ├── grid-template-columns.mdx
-│ ├── flex-direction.mdx
-│ └── font-weight.mdx
+│ └── grid-template-columns.mdx
+├── helpers/
+│ └── factories.ts # Test data factories (makeDoc, makeChunk, etc.)
 ├── unit/
 │ ├── parser.test.ts
 │ ├── chunker.test.ts
 │ ├── embedder.test.ts
 │ ├── similarity.test.ts
-│ └── database.test.ts
+│ ├── database.test.ts
+│ ├── search.test.ts
+│ ├── config.test.ts
+│ ├── categories.test.ts
+│ └── fetcher.test.ts
 ├── integration/
 │ ├── search-quality.test.ts
 │ ├── hybrid-search.test.ts

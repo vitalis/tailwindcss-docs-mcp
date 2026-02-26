@@ -56,7 +56,7 @@ export async function handleFetchDocs(
   // Step 1: Fetch from GitHub (or use cache)
   await fetchDocs(config, { version, force });
 
-  // Step 2: Read cached files
+  // Step 1b: Read cached files
   const rawFiles = await readCachedDocs(config, version);
   if (rawFiles.length === 0) {
     return {

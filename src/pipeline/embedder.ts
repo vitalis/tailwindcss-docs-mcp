@@ -72,7 +72,16 @@ export async function createEmbedder(config: Config): Promise<Embedder> {
     // we apply L2 normalization manually below for consistent unit vectors.
     const output = await extractor(input, { pooling: "cls", normalize: false });
     // tolist() returns number[][] for feature-extraction; we take the first sequence
-    const data = output.tolist()[0] as number[];
+    const list = output.tolist();
+    if (!Array.isArray(list) || !Array.isArray(list[0])) {
+      throw new Error(`Unexpected embedding output shape: expected number[][], got ${typeof list}`);
+    }
+    const data = list[0] as number[];
+    if (data.length !== config.embeddingDimensions) {
+      throw new Error(
+        `Embedding dimension mismatch: expected ${config.embeddingDimensions}, got ${data.length}`,
+      );
+    }
     return normalize(new Float32Array(data));
   }
 

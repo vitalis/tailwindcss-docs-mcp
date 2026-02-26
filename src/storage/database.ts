@@ -195,6 +195,8 @@ async function openBunSqlite(dbPath: string): Promise<SqliteDb> {
 
   // Enable WAL mode for better concurrent read performance
   db.exec("PRAGMA journal_mode=WAL");
+  // Enforce foreign key constraints at the database level
+  db.exec("PRAGMA foreign_keys=ON");
 
   return {
     exec(sql: string): void {
@@ -235,6 +237,8 @@ async function openBetterSqlite3(dbPath: string): Promise<SqliteDb> {
 
   // Enable WAL mode for better concurrent read performance
   db.pragma("journal_mode=WAL");
+  // Enforce foreign key constraints at the database level
+  db.pragma("foreign_keys=ON");
 
   return {
     exec(sql: string): void {
