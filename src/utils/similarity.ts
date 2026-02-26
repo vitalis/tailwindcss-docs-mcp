@@ -9,8 +9,17 @@
  * Returns 0 if either vector has zero magnitude.
  */
 export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
-  // TODO: implement
-  return 0;
+  let dot = 0;
+  let magA = 0;
+  let magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
+  }
+  const magnitude = Math.sqrt(magA) * Math.sqrt(magB);
+  if (magnitude === 0) return 0;
+  return dot / magnitude;
 }
 
 /**
@@ -23,6 +32,10 @@ export function rankBySimilarity<T>(
   items: T[],
   getEmbedding: (item: T) => Float32Array,
 ): Array<{ item: T; score: number }> {
-  // TODO: implement
-  return [];
+  return items
+    .map((item) => ({
+      item,
+      score: cosineSimilarity(queryEmbedding, getEmbedding(item)),
+    }))
+    .sort((a, b) => b.score - a.score);
 }

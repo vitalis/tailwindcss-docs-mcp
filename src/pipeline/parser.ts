@@ -36,12 +36,18 @@ export interface Frontmatter {
  * 5. preserveMarkdownStructure — keep headings, lists, code, links
  */
 export function parseMdx(raw: string, slug: string, version: string): CleanDocument {
-  // TODO: implement
+  const { frontmatter, content: afterFrontmatter } = stripFrontmatter(raw);
+  let content = stripImportStatements(afterFrontmatter);
+  content = stripExportStatements(content);
+  content = stripJsxComponents(content);
+  content = normalizeCodeBlocks(content);
+  content = collapseBlankLines(content);
+
   return {
     slug,
-    title: "",
-    description: "",
-    content: "",
+    title: frontmatter.title,
+    description: frontmatter.description,
+    content: content.trim(),
     url: `https://tailwindcss.com/docs/${slug}`,
     version,
   };
@@ -57,10 +63,27 @@ export function stripFrontmatter(raw: string): {
   frontmatter: Frontmatter;
   content: string;
 } {
-  // TODO: implement
+  const match = raw.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!match) {
+    return {
+      frontmatter: { title: "", description: "" },
+      content: raw,
+    };
+  }
+
+  const yamlBlock = match[1];
+  const frontmatter: Frontmatter = { title: "", description: "" };
+
+  for (const line of yamlBlock.split("\n")) {
+    const kvMatch = line.match(/^(\w+):\s*"?(.*?)"?\s*$/);
+    if (kvMatch) {
+      frontmatter[kvMatch[1]] = kvMatch[2];
+    }
+  }
+
   return {
-    frontmatter: { title: "", description: "" },
-    content: raw,
+    frontmatter,
+    content: raw.slice(match[0].length),
   };
 }
 
@@ -72,8 +95,29 @@ export function stripFrontmatter(raw: string): {
  * - `import utilities from 'utilities?plugin=padding'`
  */
 export function stripImportStatements(content: string): string {
-  // TODO: implement
-  return content;
+  // Single-line imports
+  let result = content.replace(/^import\s+.*from\s+['"].*['"];?\s*$/gm, "");
+  // Default/namespace imports without from
+  result = result.replace(/^import\s+['"].*['"];?\s*$/gm, "");
+  return result;
+}
+
+/**
+ * Remove ES module export statements from MDX content.
+ *
+ * Handles:
+ * - `export const classes = { ... }`
+ * - Multi-line export blocks
+ */
+function stripExportStatements(content: string): string {
+  // Multi-line export blocks: export const ... = { ... }
+  let result = content.replace(
+    /^export\s+(?:const|let|var|function)\s+[\s\S]*?(?:\n\}|\n\);?)\s*$/gm,
+    "",
+  );
+  // Single-line exports
+  result = result.replace(/^export\s+.*$/gm, "");
+  return result;
 }
 
 /**
@@ -84,8 +128,28 @@ export function stripImportStatements(content: string): string {
  * - Nested tags: `<SnippetGroup><Snippet>...</Snippet></SnippetGroup>` -> content only
  */
 export function stripJsxComponents(content: string): string {
-  // TODO: implement
-  return content;
+  // Protect code blocks from JSX stripping
+  const codeBlocks: string[] = [];
+  let result = content.replace(/```[\s\S]*?```/g, (match) => {
+    codeBlocks.push(match);
+    return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+  });
+
+  // Remove self-closing JSX tags: <Component /> or <Component prop="val" />
+  result = result.replace(/<[A-Z][a-zA-Z]*(?:\s+[^>]*)?\s*\/>/g, "");
+
+  // Remove JSX wrapper tags, keeping inner text (handle nested by repeating)
+  let prev = "";
+  while (prev !== result) {
+    prev = result;
+    // Tags with text content: <Component ...>text</Component>
+    result = result.replace(/<([A-Z][a-zA-Z]*)[^>]*>([\s\S]*?)<\/\1>/g, "$2");
+  }
+
+  // Restore code blocks
+  result = result.replace(/__CODE_BLOCK_(\d+)__/g, (_, idx) => codeBlocks[Number(idx)]);
+
+  return result;
 }
 
 /**
@@ -98,6 +162,12 @@ export function stripJsxComponents(content: string): string {
  * Output: ` ```js `
  */
 export function normalizeCodeBlocks(content: string): string {
-  // TODO: implement
-  return content;
+  return content.replace(/(```\w*(?:-\w+)*)\s*\{\{[\s\S]*?\}\}/g, "$1");
+}
+
+/**
+ * Collapse runs of 3+ blank lines into 2.
+ */
+function collapseBlankLines(content: string): string {
+  return content.replace(/\n{3,}/g, "\n\n");
 }
