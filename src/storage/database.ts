@@ -93,7 +93,7 @@ export interface Database {
 /**
  * SQL schema for the documentation database.
  */
-export const SCHEMA = `
+const SCHEMA = `
 -- Metadata
 CREATE TABLE IF NOT EXISTS docs (
   id INTEGER PRIMARY KEY,
@@ -488,7 +488,9 @@ export async function createDatabase(config: Config): Promise<Database> {
  * Convert a Float32Array to a Buffer for BLOB storage.
  */
 export function embeddingToBlob(embedding: Float32Array): Buffer {
-  return Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength);
+  // Copy via Uint8Array to decouple from the source ArrayBuffer,
+  // symmetric with blobToEmbedding which also copies.
+  return Buffer.from(new Uint8Array(embedding.buffer, embedding.byteOffset, embedding.byteLength));
 }
 
 /**

@@ -259,10 +259,12 @@ CREATE TABLE chunks (
 );
 
 -- Full-text search for keyword queries (exact class names like px-4, grid-cols-3)
+-- tokenchars '-' preserves hyphens so "px-4" is a single token, not "px" + "4"
 CREATE VIRTUAL TABLE chunks_fts USING fts5(
   heading, content,
   content='chunks',
-  content_rowid='id'
+  content_rowid='id',
+  tokenize = "unicode61 tokenchars '-'"
 );
 
 -- Index status
@@ -276,7 +278,7 @@ CREATE TABLE index_status (
 );
 ```
 
-Embeddings live in the `chunks` table directly as BLOBs — no separate table, no virtual table. Cosine similarity is computed in application code by loading all embeddings into memory on startup (~1.2 MB for 800 chunks × 384 dims × 4 bytes).
+Embeddings live in the `chunks` table directly as BLOBs — no separate table, no virtual table. Cosine similarity is computed in application code by loading all chunk embeddings per query via `getAllChunksWithEmbeddings()` (~1.2 MB for 800 chunks × 384 dims × 4 bytes). At our scale this per-query load is negligible; for larger corpora, caching or a vector index would be warranted.
 
 **Storage location**: `~/.tailwindcss-docs-mcp/` (configurable via `TAILWIND_DOCS_MCP_PATH`).
 

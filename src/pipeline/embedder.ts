@@ -9,14 +9,6 @@ export interface EmbedOptions {
 }
 
 /**
- * Result of embedding a single text.
- */
-export interface EmbeddingResult {
-  /** The embedding vector as a Float32Array (384 dimensions for snowflake-arctic-embed-xs) */
-  embedding: Float32Array;
-}
-
-/**
  * The embedder instance, initialized with the ONNX model.
  */
 export interface Embedder {
@@ -76,7 +68,10 @@ export async function createEmbedder(config: Config): Promise<Embedder> {
 
   async function embed(text: string, options?: EmbedOptions): Promise<Float32Array> {
     const input = options?.isQuery ? `${config.queryPrefix}${text}` : text;
+    // normalize: false disables HuggingFace's built-in normalization;
+    // we apply L2 normalization manually below for consistent unit vectors.
     const output = await extractor(input, { pooling: "cls", normalize: false });
+    // tolist() returns number[][] for feature-extraction; we take the first sequence
     const data = output.tolist()[0] as number[];
     return normalize(new Float32Array(data));
   }

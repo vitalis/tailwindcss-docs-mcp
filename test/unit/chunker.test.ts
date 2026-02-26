@@ -5,19 +5,7 @@ import {
   estimateTokens,
   headingToAnchor,
 } from "../../src/pipeline/chunker.js";
-import type { CleanDocument } from "../../src/pipeline/parser.js";
-
-function makeDoc(overrides: Partial<CleanDocument> = {}): CleanDocument {
-  return {
-    slug: "padding",
-    title: "Padding",
-    description: "Utilities for padding",
-    content: "",
-    url: "https://tailwindcss.com/docs/padding",
-    version: "v3",
-    ...overrides,
-  };
-}
+import { makeDoc } from "../helpers/factories.js";
 
 describe("Chunker", () => {
   describe("chunkDocument", () => {

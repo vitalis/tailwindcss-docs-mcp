@@ -282,6 +282,11 @@ describe("Search", () => {
         const results = keywordSearch(db, query, "v3", 10);
         expect(Array.isArray(results)).toBe(true);
       }
+
+      // Verify that escaped parenthesized query still finds matching content
+      const parenResults = keywordSearch(db, "(padding)", "v3", 10);
+      expect(parenResults.length).toBeGreaterThan(0);
+      expect(parenResults[0].chunk.content).toContain("padding");
     });
 
     it("returns empty for whitespace-only query", () => {

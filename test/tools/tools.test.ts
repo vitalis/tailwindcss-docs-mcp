@@ -11,20 +11,13 @@ import { handleFetchDocs } from "../../src/tools/fetch-docs.js";
 import { formatUtilitiesList, handleListUtilities } from "../../src/tools/list-utilities.js";
 import { formatSearchResults, handleSearchDocs } from "../../src/tools/search-docs.js";
 import type { Config } from "../../src/utils/config.js";
+import { testConfig as baseTestConfig } from "../helpers/factories.js";
 import { createMockEmbedder } from "../setup.js";
 
 const TEST_DIR = "/tmp/tailwindcss-docs-mcp-tools-test";
 
 function testConfig(): Config {
-  return {
-    dataDir: TEST_DIR,
-    dbPath: ":memory:",
-    rawDir: join(TEST_DIR, "raw"),
-    defaultVersion: "v3",
-    embeddingModel: "test-model",
-    embeddingDimensions: 384,
-    queryPrefix: "test: ",
-  };
+  return baseTestConfig({ dataDir: TEST_DIR, rawDir: join(TEST_DIR, "raw") });
 }
 
 const PADDING_MDX = `---

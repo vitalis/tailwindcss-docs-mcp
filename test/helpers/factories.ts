@@ -2,16 +2,18 @@ import type { Chunk } from "../../src/pipeline/chunker.js";
 import type { CleanDocument } from "../../src/pipeline/parser.js";
 import type { Config } from "../../src/utils/config.js";
 
-/** Minimal in-memory config for tests. */
-export function testConfig(): Config {
+/** Minimal in-memory config for tests. Override any field via Partial<Config>. */
+export function testConfig(overrides?: Partial<Config>): Config {
+  const dataDir = overrides?.dataDir ?? "/tmp/test";
   return {
-    dataDir: "/tmp/test",
+    dataDir,
     dbPath: ":memory:",
-    rawDir: "/tmp/test/raw",
+    rawDir: `${dataDir}/raw`,
     defaultVersion: "v3",
     embeddingModel: "test-model",
     embeddingDimensions: 384,
     queryPrefix: "test: ",
+    ...overrides,
   };
 }
 

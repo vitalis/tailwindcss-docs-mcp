@@ -2,20 +2,16 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fetchDocs, readCachedDocs } from "../../src/pipeline/fetcher.js";
-import type { Config } from "../../src/utils/config.js";
+import { testConfig as baseTestConfig } from "../helpers/factories.js";
 
 const TEST_DIR = "/tmp/tailwindcss-docs-mcp-fetcher-test";
 
-function testConfig(): Config {
-  return {
+function testConfig() {
+  return baseTestConfig({
     dataDir: TEST_DIR,
     dbPath: join(TEST_DIR, "docs.db"),
     rawDir: join(TEST_DIR, "raw"),
-    defaultVersion: "v3",
-    embeddingModel: "test-model",
-    embeddingDimensions: 384,
-    queryPrefix: "test: ",
-  };
+  });
 }
 
 describe("Fetcher", () => {

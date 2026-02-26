@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -8,6 +9,10 @@ import { handleFetchDocs } from "./tools/fetch-docs.js";
 import { formatUtilitiesList, handleListUtilities } from "./tools/list-utilities.js";
 import { formatSearchResults, handleSearchDocs } from "./tools/search-docs.js";
 import type { Config } from "./utils/config.js";
+
+const { version: SERVER_VERSION } = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
+);
 
 /**
  * MCP tool names exposed by this server.
@@ -39,7 +44,7 @@ export async function createServer(deps: ServerDeps): Promise<void> {
 
   const server = new McpServer({
     name: "tailwindcss-docs-mcp",
-    version: "0.1.0",
+    version: SERVER_VERSION,
   });
 
   // Register fetch_docs
