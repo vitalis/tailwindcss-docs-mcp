@@ -361,5 +361,25 @@ describe("Storage / Database", () => {
         expect(recovered[i]).toBeCloseTo(view[i], 6);
       }
     });
+
+    it("handles Buffer with unaligned byteOffset", () => {
+      // Simulate a Buffer whose byteOffset is not 4-byte aligned,
+      // which would cause RangeError if passed directly to Float32Array.
+      const original = makeFakeEmbedding(42, 384);
+      const blob = embeddingToBlob(original);
+
+      // Create an unaligned buffer by slicing from offset 1 within a larger buffer
+      const padded = Buffer.alloc(blob.byteLength + 1);
+      blob.copy(padded, 1);
+      const unaligned = padded.subarray(1);
+
+      // byteOffset may or may not be unaligned depending on runtime,
+      // but the function must handle both cases without throwing.
+      const recovered = blobToEmbedding(unaligned);
+      expect(recovered.length).toBe(384);
+      for (let i = 0; i < 384; i++) {
+        expect(recovered[i]).toBe(original[i]);
+      }
+    });
   });
 });

@@ -491,9 +491,13 @@ export function embeddingToBlob(embedding: Float32Array): Buffer {
 
 /**
  * Convert a BLOB Buffer back to a Float32Array.
+ *
+ * Copies through Uint8Array to guarantee 4-byte alignment — a Buffer's
+ * byteOffset may not be aligned, which would cause Float32Array to throw
+ * a RangeError on construction.
  */
 export function blobToEmbedding(blob: Buffer): Float32Array {
-  const copy = new Float32Array(blob.byteLength / 4);
-  copy.set(new Float32Array(blob.buffer, blob.byteOffset, blob.byteLength / 4));
-  return copy;
+  const aligned = new Uint8Array(blob.byteLength);
+  aligned.set(new Uint8Array(blob.buffer, blob.byteOffset, blob.byteLength));
+  return new Float32Array(aligned.buffer);
 }

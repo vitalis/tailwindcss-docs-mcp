@@ -46,11 +46,11 @@ export interface ListUtilitiesResult {
  * Returns category metadata from the static mapping, enriched with
  * indexed document titles and descriptions when available.
  */
-export async function handleListUtilities(
+export function handleListUtilities(
   input: ListUtilitiesInput,
   db: Database,
   defaultVersion: TailwindVersion,
-): Promise<ListUtilitiesResult> {
+): ListUtilitiesResult {
   const version = input.version ?? defaultVersion;
 
   let categories: UtilityCategory[];

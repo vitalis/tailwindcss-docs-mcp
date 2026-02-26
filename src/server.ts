@@ -105,8 +105,8 @@ export async function createServer(deps: ServerDeps): Promise<void> {
         ),
       version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v3)"),
     },
-    async (params) => {
-      const result = await handleListUtilities(params, db, config.defaultVersion);
+    (params) => {
+      const result = handleListUtilities(params, db, config.defaultVersion);
       const text = formatUtilitiesList(result);
       return { content: [{ type: "text" as const, text }] };
     },
@@ -122,8 +122,8 @@ export async function createServer(deps: ServerDeps): Promise<void> {
         .optional()
         .describe("Check specific version (v3 or v4). Omit to check all."),
     },
-    async (params) => {
-      const result = await handleCheckStatus(params, db);
+    (params) => {
+      const result = handleCheckStatus(params, db);
       return { content: [{ type: "text" as const, text: result.message }] };
     },
   );

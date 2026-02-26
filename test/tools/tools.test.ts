@@ -100,20 +100,16 @@ describe("MCP Tool Handlers", () => {
     });
 
     it("formats status as markdown", () => {
-      const result = formatStatus({
-        indexed: true,
-        versions: [
-          {
-            version: "v3",
-            doc_count: 10,
-            chunk_count: 50,
-            embedding_model: "test-model",
-            embedding_dimensions: 384,
-            indexed_at: "2024-01-01 00:00:00",
-          },
-        ],
-        message: "",
-      });
+      const result = formatStatus(true, [
+        {
+          version: "v3",
+          doc_count: 10,
+          chunk_count: 50,
+          embedding_model: "test-model",
+          embedding_dimensions: 384,
+          indexed_at: "2024-01-01 00:00:00",
+        },
+      ]);
       expect(result).toContain("# Tailwind CSS Documentation Index Status");
       expect(result).toContain("**Documents**: 10");
       expect(result).toContain("**Chunks**: 50");

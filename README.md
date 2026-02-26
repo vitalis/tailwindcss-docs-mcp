@@ -178,7 +178,7 @@ bun install
 ### Commands
 
 ```bash
-bun test                       # Run all tests (168 pass, ~300ms)
+bun test                       # Run all tests
 bun run build                  # TypeScript type check
 bunx biome check src/ test/    # Lint + format check
 bunx biome check --write src/  # Auto-fix

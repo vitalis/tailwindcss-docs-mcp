@@ -27,31 +27,26 @@ export interface CheckStatusResult {
  * Reports the current index state without triggering any work.
  * Returns doc/chunk counts, embedding model used, and last indexed timestamp.
  */
-export async function handleCheckStatus(
-  input: CheckStatusInput,
-  db: Database,
-): Promise<CheckStatusResult> {
+export function handleCheckStatus(input: CheckStatusInput, db: Database): CheckStatusResult {
   const versions = db.getIndexStatus(input.version);
   const indexed = versions.length > 0;
 
-  return {
-    indexed,
-    versions,
-    message: formatStatus({ indexed, versions, message: "" }),
-  };
+  const message = formatStatus(indexed, versions);
+
+  return { indexed, versions, message };
 }
 
 /**
  * Format the status as markdown for LLM consumption.
  */
-export function formatStatus(result: CheckStatusResult): string {
-  if (!result.indexed) {
+export function formatStatus(indexed: boolean, versions: IndexStatus[]): string {
+  if (!indexed) {
     return "Not indexed. Run fetch_docs to index Tailwind CSS documentation.";
   }
 
   const lines: string[] = ["# Tailwind CSS Documentation Index Status\n"];
 
-  for (const v of result.versions) {
+  for (const v of versions) {
     lines.push(`## ${v.version}`);
     lines.push(`- **Documents**: ${v.doc_count}`);
     lines.push(`- **Chunks**: ${v.chunk_count}`);
