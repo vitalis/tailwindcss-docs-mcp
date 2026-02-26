@@ -2,10 +2,6 @@
 
 Local semantic search for Tailwind CSS documentation via Model Context Protocol.
 
-## Architecture
-
-Full architecture document: `docs/architecture.md`
-
 ## Stack
 
 - **Language**: TypeScript (strict mode, ES2022, NodeNext)
