@@ -1,5 +1,4 @@
-import type { Database } from "../storage/database.js";
-import type { IndexStatus } from "../storage/database.js";
+import type { Database, IndexStatus } from "../storage/database.js";
 import type { TailwindVersion } from "../utils/config.js";
 
 /**
@@ -32,11 +31,13 @@ export async function handleCheckStatus(
   input: CheckStatusInput,
   db: Database,
 ): Promise<CheckStatusResult> {
-  // TODO: implement
+  const versions = db.getIndexStatus(input.version);
+  const indexed = versions.length > 0;
+
   return {
-    indexed: false,
-    versions: [],
-    message: "Not indexed. Run fetch_docs to index Tailwind CSS documentation.",
+    indexed,
+    versions,
+    message: formatStatus({ indexed, versions, message: "" }),
   };
 }
 
@@ -44,6 +45,20 @@ export async function handleCheckStatus(
  * Format the status as markdown for LLM consumption.
  */
 export function formatStatus(result: CheckStatusResult): string {
-  // TODO: implement
-  return result.message;
+  if (!result.indexed) {
+    return "Not indexed. Run fetch_docs to index Tailwind CSS documentation.";
+  }
+
+  const lines: string[] = ["# Tailwind CSS Documentation Index Status\n"];
+
+  for (const v of result.versions) {
+    lines.push(`## ${v.version}`);
+    lines.push(`- **Documents**: ${v.doc_count}`);
+    lines.push(`- **Chunks**: ${v.chunk_count}`);
+    lines.push(`- **Model**: ${v.embedding_model} (${v.embedding_dimensions} dimensions)`);
+    lines.push(`- **Last indexed**: ${v.indexed_at}`);
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }

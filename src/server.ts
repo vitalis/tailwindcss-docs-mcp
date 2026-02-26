@@ -1,5 +1,12 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 import type { Embedder } from "./pipeline/embedder.js";
 import type { Database } from "./storage/database.js";
+import { handleCheckStatus } from "./tools/check-status.js";
+import { handleFetchDocs } from "./tools/fetch-docs.js";
+import { formatUtilitiesList, handleListUtilities } from "./tools/list-utilities.js";
+import { formatSearchResults, handleSearchDocs } from "./tools/search-docs.js";
 import type { Config } from "./utils/config.js";
 
 /**
@@ -11,97 +18,6 @@ export const TOOL_NAMES = {
   LIST_UTILITIES: "list_utilities",
   CHECK_STATUS: "check_status",
 } as const;
-
-/**
- * MCP tool definitions with JSON schemas matching the architecture doc.
- */
-export const TOOL_DEFINITIONS = [
-  {
-    name: TOOL_NAMES.FETCH_DOCS,
-    description:
-      "Download and index Tailwind CSS documentation for local semantic search. Only needs to be run once per version. Re-run with force=true to refresh.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        version: {
-          type: "string",
-          enum: ["v3", "v4"],
-          default: "v3",
-          description: "Tailwind CSS major version",
-        },
-        force: {
-          type: "boolean",
-          default: false,
-          description: "Force re-download and re-index even if already cached",
-        },
-      },
-    },
-  },
-  {
-    name: TOOL_NAMES.SEARCH_DOCS,
-    description:
-      "Search Tailwind CSS documentation using natural language. Returns the most relevant documentation snippets with code examples. Requires fetch_docs to be run first.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        query: {
-          type: "string",
-          description:
-            "Natural language search query (e.g., 'how to add responsive padding', 'dark mode configuration', 'grid layout with gaps')",
-        },
-        version: {
-          type: "string",
-          enum: ["v3", "v4"],
-          default: "v3",
-          description: "Tailwind CSS major version to search",
-        },
-        limit: {
-          type: "number",
-          default: 5,
-          minimum: 1,
-          maximum: 20,
-          description: "Maximum number of results to return",
-        },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: TOOL_NAMES.LIST_UTILITIES,
-    description:
-      "List all Tailwind CSS utility categories with descriptions. Useful for discovering what utilities are available.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        category: {
-          type: "string",
-          description:
-            "Filter by category (e.g., 'layout', 'spacing', 'typography', 'flexbox'). Omit to list all categories.",
-        },
-        version: {
-          type: "string",
-          enum: ["v3", "v4"],
-          default: "v3",
-        },
-      },
-    },
-  },
-  {
-    name: TOOL_NAMES.CHECK_STATUS,
-    description:
-      "Check the current index status for Tailwind CSS documentation. Shows which versions are indexed, chunk counts, and when they were last updated.",
-    inputSchema: {
-      type: "object" as const,
-      properties: {
-        version: {
-          type: "string",
-          enum: ["v3", "v4"],
-          description: "Check specific version. Omit to check all.",
-        },
-      },
-    },
-  },
-] as const;
 
 /**
  * Server dependencies injected at startup.
@@ -119,9 +35,78 @@ export interface ServerDeps {
  * and dispatches calls to their respective handlers.
  */
 export async function createServer(deps: ServerDeps): Promise<void> {
-  // TODO: implement
-  // 1. Create McpServer from @modelcontextprotocol/sdk
-  // 2. Register each tool with its definition and handler
-  // 3. Connect via stdio transport
-  throw new Error("Not implemented");
+  const { config, db, embedder } = deps;
+
+  const server = new McpServer({
+    name: "tailwindcss-docs-mcp",
+    version: "0.1.0",
+  });
+
+  // Register fetch_docs
+  server.tool(
+    TOOL_NAMES.FETCH_DOCS,
+    "Download and index Tailwind CSS documentation for local semantic search. Only needs to be run once per version. Re-run with force=true to refresh.",
+    {
+      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version"),
+      force: z
+        .boolean()
+        .optional()
+        .describe("Force re-download and re-index even if already cached"),
+    },
+    async (params) => {
+      const result = await handleFetchDocs(params, config, db, embedder);
+      return { content: [{ type: "text" as const, text: result.message }] };
+    },
+  );
+
+  // Register search_docs
+  server.tool(
+    TOOL_NAMES.SEARCH_DOCS,
+    "Search Tailwind CSS documentation using natural language. Returns the most relevant documentation snippets with code examples. Requires fetch_docs to be run first.",
+    {
+      query: z.string().describe("Natural language search query"),
+      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version to search"),
+      limit: z.number().min(1).max(20).optional().describe("Maximum number of results to return"),
+    },
+    async (params) => {
+      const results = await handleSearchDocs(params, db, embedder);
+      const text = formatSearchResults(results);
+      return { content: [{ type: "text" as const, text }] };
+    },
+  );
+
+  // Register list_utilities
+  server.tool(
+    TOOL_NAMES.LIST_UTILITIES,
+    "List all Tailwind CSS utility categories with descriptions. Useful for discovering what utilities are available.",
+    {
+      category: z.string().optional().describe("Filter by category name"),
+      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version"),
+    },
+    async (params) => {
+      const result = await handleListUtilities(params, db);
+      const text = formatUtilitiesList(result);
+      return { content: [{ type: "text" as const, text }] };
+    },
+  );
+
+  // Register check_status
+  server.tool(
+    TOOL_NAMES.CHECK_STATUS,
+    "Check the current index status for Tailwind CSS documentation. Shows which versions are indexed, chunk counts, and when they were last updated.",
+    {
+      version: z
+        .enum(["v3", "v4"])
+        .optional()
+        .describe("Check specific version. Omit to check all."),
+    },
+    async (params) => {
+      const result = await handleCheckStatus(params, db);
+      return { content: [{ type: "text" as const, text: result.message }] };
+    },
+  );
+
+  // Connect via stdio transport
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
 }

@@ -12,22 +12,26 @@
  *   bunx tailwindcss-docs-mcp     # Published package (Bun)
  */
 
+import { mkdirSync } from "node:fs";
+import { createEmbedder } from "./pipeline/embedder.js";
+import { createServer } from "./server.js";
+import { createDatabase } from "./storage/database.js";
 import { loadConfig } from "./utils/config.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
 
-  // TODO: implement
-  // 1. Ensure data directory exists (mkdir -p config.dataDir)
-  // 2. Create database instance (createDatabase(config))
-  // 3. Create embedder instance (createEmbedder(config))
-  // 4. Start MCP server (createServer({ config, db, embedder }))
+  // Ensure data directory exists
+  mkdirSync(config.dataDir, { recursive: true });
 
-  // Placeholder: log startup info
-  console.error("tailwindcss-docs-mcp starting...");
-  console.error(`  Data directory: ${config.dataDir}`);
-  console.error(`  Default version: ${config.defaultVersion}`);
-  console.error(`  Embedding model: ${config.embeddingModel}`);
+  // Initialize database
+  const db = await createDatabase(config);
+
+  // Initialize embedder (downloads model on first run)
+  const embedder = await createEmbedder(config);
+
+  // Start MCP server
+  await createServer({ config, db, embedder });
 }
 
 main().catch((error: unknown) => {

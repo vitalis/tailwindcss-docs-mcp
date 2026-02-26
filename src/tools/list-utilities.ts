@@ -1,5 +1,5 @@
 import type { Database } from "../storage/database.js";
-import type { UtilityCategory } from "../utils/categories.js";
+import { UTILITY_CATEGORIES, type UtilityCategory, findCategory } from "../utils/categories.js";
 import type { TailwindVersion } from "../utils/config.js";
 
 /**
@@ -50,14 +50,64 @@ export async function handleListUtilities(
   input: ListUtilitiesInput,
   db: Database,
 ): Promise<ListUtilitiesResult> {
-  // TODO: implement
-  return { categories: [] };
+  const version = input.version ?? "v3";
+
+  let categories: UtilityCategory[];
+  if (input.category) {
+    const match = findCategory(input.category);
+    categories = match ? [match] : [];
+  } else {
+    categories = UTILITY_CATEGORIES;
+  }
+
+  return {
+    categories: categories.map((cat) => ({
+      name: cat.name,
+      description: cat.description,
+      utilities: cat.slugs.map((slug) => {
+        const doc = db.getDoc(slug, version);
+        return {
+          title: doc?.title ?? slugToTitle(slug),
+          description: doc?.description ?? "",
+          url: doc?.url ?? `https://tailwindcss.com/docs/${slug}`,
+          category: cat.name,
+        };
+      }),
+    })),
+  };
+}
+
+/**
+ * Convert a slug to a human-readable title as fallback.
+ */
+function slugToTitle(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 /**
  * Format the utility list as markdown for LLM consumption.
  */
 export function formatUtilitiesList(result: ListUtilitiesResult): string {
-  // TODO: implement
-  return "";
+  if (result.categories.length === 0) {
+    return "No matching utility categories found.";
+  }
+
+  const lines: string[] = ["# Tailwind CSS Utility Categories\n"];
+
+  for (const cat of result.categories) {
+    lines.push(`## ${cat.name}`);
+    lines.push(`${cat.description}\n`);
+
+    for (const util of cat.utilities) {
+      lines.push(
+        `- [${util.title}](${util.url})${util.description ? ` — ${util.description}` : ""}`,
+      );
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }

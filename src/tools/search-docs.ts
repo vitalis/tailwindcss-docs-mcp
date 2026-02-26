@@ -1,6 +1,6 @@
 import type { Embedder } from "../pipeline/embedder.js";
 import type { Database } from "../storage/database.js";
-import type { SearchResult } from "../storage/search.js";
+import { type SearchResult, hybridSearch } from "../storage/search.js";
 import type { TailwindVersion } from "../utils/config.js";
 
 /**
@@ -31,8 +31,20 @@ export async function handleSearchDocs(
   db: Database,
   embedder: Embedder,
 ): Promise<SearchResult[]> {
-  // TODO: implement
-  return [];
+  const version = input.version ?? "v3";
+  const limit = Math.min(Math.max(input.limit ?? 5, 1), 20);
+
+  // Check if index exists
+  const status = db.getIndexStatus(version);
+  if (status.length === 0) {
+    return [];
+  }
+
+  return hybridSearch(db, embedder, {
+    query: input.query,
+    version,
+    limit,
+  });
 }
 
 /**
@@ -44,6 +56,19 @@ export async function handleSearchDocs(
  * - Deep link to tailwindcss.com
  */
 export function formatSearchResults(results: SearchResult[]): string {
-  // TODO: implement
-  return "";
+  if (results.length === 0) {
+    return "No results found. Make sure the index has been built with fetch_docs.";
+  }
+
+  const lines: string[] = [];
+
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    lines.push(`## ${i + 1}. ${r.docTitle} — ${r.heading}`);
+    lines.push(`[View on tailwindcss.com](${r.url})\n`);
+    lines.push(r.content);
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }
