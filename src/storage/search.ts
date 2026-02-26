@@ -66,7 +66,8 @@ export async function hybridSearch(
   }
   if (chunks.length === 0) return [];
 
-  // Run both search strategies — fetch 2x limit for better fusion
+  // Fetch 2x the requested limit from each strategy to improve fusion quality.
+  // A higher multiplier would improve recall at the cost of more computation.
   const fetchLimit = limit * 2;
   const [semantic, keyword] = await Promise.all([
     semanticSearch(embedder, chunks, query, fetchLimit),

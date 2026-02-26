@@ -84,7 +84,7 @@ export async function createServer(deps: ServerDeps): Promise<void> {
       version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version"),
     },
     async (params) => {
-      const result = await handleListUtilities(params, db);
+      const result = await handleListUtilities(params, db, config.defaultVersion);
       const text = formatUtilitiesList(result);
       return { content: [{ type: "text" as const, text }] };
     },

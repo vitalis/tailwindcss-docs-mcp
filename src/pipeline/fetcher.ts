@@ -85,7 +85,7 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
       item.path.endsWith(".mdx"),
   );
 
-  // Step 3: Fetch each file's content
+  // Fetch blobs sequentially to respect GitHub API rate limits.
   let fetched = 0;
   for (const file of mdxFiles) {
     if (!file.sha || !file.path) continue;

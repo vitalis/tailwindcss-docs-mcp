@@ -84,6 +84,8 @@ export async function createEmbedder(config: Config): Promise<Embedder> {
   return {
     embed,
     async embedBatch(texts: string[], options?: EmbedOptions): Promise<Float32Array[]> {
+      // Sequential processing — ONNX runtime is single-threaded, so concurrent
+      // calls would not improve throughput within a single process.
       const results: Float32Array[] = [];
       for (const text of texts) {
         results.push(await embed(text, options));

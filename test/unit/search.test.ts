@@ -12,23 +12,8 @@ import {
   keywordSearch,
   semanticSearch,
 } from "../../src/storage/search.js";
-import { makeChunk, makeDoc, testConfig } from "../helpers/factories.js";
+import { makeChunk, makeDoc, makeFakeEmbedding, testConfig } from "../helpers/factories.js";
 import { createMockEmbedder } from "../setup.js";
-
-function makeFakeEmbedding(seed = 42, dims = 384): Float32Array {
-  const vec = new Float32Array(dims);
-  let val = seed;
-  for (let i = 0; i < dims; i++) {
-    val = (val * 1103515245 + 12345) | 0;
-    vec[i] = (val & 0x7fffffff) / 0x7fffffff;
-  }
-  // Normalize
-  let mag = 0;
-  for (let i = 0; i < dims; i++) mag += vec[i] * vec[i];
-  mag = Math.sqrt(mag);
-  if (mag > 0) for (let i = 0; i < dims; i++) vec[i] /= mag;
-  return vec;
-}
 
 function makeChunkRow(overrides?: Partial<ChunkRow>): ChunkRow {
   return {
@@ -37,7 +22,7 @@ function makeChunkRow(overrides?: Partial<ChunkRow>): ChunkRow {
     heading: "## Basic usage",
     content: "Use p-4 for padding.",
     content_hash: "hash1",
-    embedding: embeddingToBlob(makeFakeEmbedding(1)),
+    embedding: embeddingToBlob(makeFakeEmbedding(1, 384, true)),
     url: "https://tailwindcss.com/docs/padding#basic-usage",
     token_count: 10,
     ...overrides,
@@ -123,15 +108,15 @@ describe("Search", () => {
       const chunks: ChunkRow[] = [
         makeChunkRow({
           id: 1,
-          embedding: embeddingToBlob(makeFakeEmbedding(1)),
+          embedding: embeddingToBlob(makeFakeEmbedding(1, 384, true)),
         }),
         makeChunkRow({
           id: 2,
-          embedding: embeddingToBlob(makeFakeEmbedding(2)),
+          embedding: embeddingToBlob(makeFakeEmbedding(2, 384, true)),
         }),
         makeChunkRow({
           id: 3,
-          embedding: embeddingToBlob(makeFakeEmbedding(3)),
+          embedding: embeddingToBlob(makeFakeEmbedding(3, 384, true)),
         }),
       ];
 
@@ -149,15 +134,15 @@ describe("Search", () => {
       const chunks: ChunkRow[] = [
         makeChunkRow({
           id: 1,
-          embedding: embeddingToBlob(makeFakeEmbedding(1)),
+          embedding: embeddingToBlob(makeFakeEmbedding(1, 384, true)),
         }),
         makeChunkRow({
           id: 2,
-          embedding: embeddingToBlob(makeFakeEmbedding(2)),
+          embedding: embeddingToBlob(makeFakeEmbedding(2, 384, true)),
         }),
         makeChunkRow({
           id: 3,
-          embedding: embeddingToBlob(makeFakeEmbedding(3)),
+          embedding: embeddingToBlob(makeFakeEmbedding(3, 384, true)),
         }),
       ];
 
@@ -170,7 +155,7 @@ describe("Search", () => {
       const chunks: ChunkRow[] = [
         makeChunkRow({
           id: 1,
-          embedding: embeddingToBlob(makeFakeEmbedding(1)),
+          embedding: embeddingToBlob(makeFakeEmbedding(1, 384, true)),
         }),
         makeChunkRow({ id: 2, embedding: null }),
       ];
@@ -263,6 +248,48 @@ describe("Search", () => {
       const results = keywordSearch(db, "padding", "v3", 10);
       expect(results.length).toBeGreaterThanOrEqual(2);
       expect(results[0].keywordScore).toBeGreaterThan(results[1].keywordScore);
+    });
+
+    it("handles FTS5 operator keywords in query", () => {
+      const docId = db.upsertDoc(makeDoc());
+      db.upsertChunk(
+        makeChunk({ id: "h1", content: "Use AND with OR for NOT operations." }),
+        docId,
+        null,
+      );
+
+      // FTS5 operators should be escaped and treated as literal words
+      const results = keywordSearch(db, "AND OR NOT", "v3", 10);
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    it("handles column selectors in query", () => {
+      const docId = db.upsertDoc(makeDoc());
+      db.upsertChunk(makeChunk({ id: "h1", content: "heading padding content" }), docId, null);
+
+      // "heading:" is FTS5 column selector syntax — should be escaped
+      const results = keywordSearch(db, "heading:padding", "v3", 10);
+      // Should not throw; may return empty since "heading:padding" as a literal token won't match
+      expect(Array.isArray(results)).toBe(true);
+    });
+
+    it("handles special characters in query", () => {
+      const docId = db.upsertDoc(makeDoc());
+      db.upsertChunk(makeChunk({ id: "h1", content: "Use px-4 for padding." }), docId, null);
+
+      // Queries with FTS5 special chars should not throw
+      for (const query of ['"px-4"', "px*", "px-4^", "(padding)", "padding + margin"]) {
+        const results = keywordSearch(db, query, "v3", 10);
+        expect(Array.isArray(results)).toBe(true);
+      }
+    });
+
+    it("returns empty for whitespace-only query", () => {
+      const docId = db.upsertDoc(makeDoc());
+      db.upsertChunk(makeChunk(), docId, null);
+
+      const results = keywordSearch(db, "   ", "v3", 10);
+      expect(results).toHaveLength(0);
     });
   });
 

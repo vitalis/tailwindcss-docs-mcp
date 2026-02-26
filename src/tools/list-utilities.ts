@@ -49,8 +49,9 @@ export interface ListUtilitiesResult {
 export async function handleListUtilities(
   input: ListUtilitiesInput,
   db: Database,
+  defaultVersion?: TailwindVersion,
 ): Promise<ListUtilitiesResult> {
-  const version = input.version ?? "v3";
+  const version = input.version ?? defaultVersion ?? "v3";
 
   let categories: UtilityCategory[];
   if (input.category) {

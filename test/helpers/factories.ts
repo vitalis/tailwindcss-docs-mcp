@@ -42,13 +42,19 @@ export function makeChunk(overrides?: Partial<Chunk>): Chunk {
   };
 }
 
-/** Create a deterministic Float32Array from a seed (NOT normalized). */
-export function makeFakeEmbedding(seed = 42, dims = 384): Float32Array {
+/** Create a deterministic Float32Array from a seed. Optionally normalized to unit length. */
+export function makeFakeEmbedding(seed = 42, dims = 384, normalize = false): Float32Array {
   const vec = new Float32Array(dims);
   let val = seed;
   for (let i = 0; i < dims; i++) {
     val = (val * 1103515245 + 12345) | 0;
     vec[i] = (val & 0x7fffffff) / 0x7fffffff;
+  }
+  if (normalize) {
+    let mag = 0;
+    for (let i = 0; i < dims; i++) mag += vec[i] * vec[i];
+    mag = Math.sqrt(mag);
+    if (mag > 0) for (let i = 0; i < dims; i++) vec[i] /= mag;
   }
   return vec;
 }

@@ -5,22 +5,10 @@ import { buildEmbeddingInput } from "../../src/pipeline/embedder.js";
 import { parseMdx } from "../../src/pipeline/parser.js";
 import { type Database, createDatabase } from "../../src/storage/database.js";
 import { hybridSearch, keywordSearch, semanticSearch } from "../../src/storage/search.js";
-import type { Config } from "../../src/utils/config.js";
+import { testConfig } from "../helpers/factories.js";
 import { createMockEmbedder } from "../setup.js";
 
 const FIXTURES_DIR = new URL("../fixtures/mdx", import.meta.url).pathname;
-
-function testConfig(): Config {
-  return {
-    dataDir: "/tmp/test",
-    dbPath: ":memory:",
-    rawDir: "/tmp/test/raw",
-    defaultVersion: "v3",
-    embeddingModel: "test-model",
-    embeddingDimensions: 384,
-    queryPrefix: "test: ",
-  };
-}
 
 const FIXTURE_SLUGS = ["padding", "dark-mode", "grid-template-columns"];
 

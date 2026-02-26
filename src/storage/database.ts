@@ -266,10 +266,18 @@ async function openBetterSqlite3(dbPath: string): Promise<SqliteDb> {
  * then falls back to better-sqlite3 (Node.js).
  */
 async function openDatabase(dbPath: string): Promise<SqliteDb> {
+  let bunError: unknown;
   try {
     return await openBunSqlite(dbPath);
-  } catch {
+  } catch (error) {
+    bunError = error;
+  }
+  try {
     return await openBetterSqlite3(dbPath);
+  } catch (error) {
+    throw new Error(
+      `Failed to open SQLite database. bun:sqlite: ${bunError instanceof Error ? bunError.message : String(bunError)}; better-sqlite3: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -298,7 +306,7 @@ export async function createDatabase(config: Config): Promise<Database> {
     },
 
     upsertDoc(doc: CleanDocument): number {
-      const result = db.queryRun(
+      db.queryRun(
         `INSERT INTO docs (slug, title, description, url, version, fetched_at)
          VALUES (?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(slug, version) DO UPDATE SET
@@ -464,8 +472,8 @@ export async function createDatabase(config: Config): Promise<Database> {
           version,
           limit,
         );
-      } catch {
-        // FTS5 syntax error (e.g., invalid query) — return empty
+      } catch (error) {
+        console.warn("[tailwindcss-docs-mcp] FTS5 search failed:", error);
         return [];
       }
     },
@@ -487,5 +495,7 @@ export function embeddingToBlob(embedding: Float32Array): Buffer {
  * Convert a BLOB Buffer back to a Float32Array.
  */
 export function blobToEmbedding(blob: Buffer): Float32Array {
-  return new Float32Array(blob.buffer, blob.byteOffset, blob.byteLength / 4);
+  const copy = new Float32Array(blob.byteLength / 4);
+  copy.set(new Float32Array(blob.buffer, blob.byteOffset, blob.byteLength / 4));
+  return copy;
 }

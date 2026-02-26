@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cosineSimilarity, rankBySimilarity } from "../../src/utils/similarity.js";
+import { cosineSimilarity } from "../../src/utils/similarity.js";
 
 describe("Cosine Similarity", () => {
   describe("cosineSimilarity", () => {
@@ -50,31 +50,6 @@ describe("Cosine Similarity", () => {
       const a = new Float32Array([1, 0, 0]);
       const b = new Float32Array([1, 0]);
       expect(() => cosineSimilarity(a, b)).toThrow("Vector length mismatch");
-    });
-  });
-
-  describe("rankBySimilarity", () => {
-    it("ranks items by descending similarity", () => {
-      const query = new Float32Array([1, 0, 0]);
-      const items = [
-        { name: "orthogonal", vec: new Float32Array([0, 1, 0]) },
-        { name: "identical", vec: new Float32Array([1, 0, 0]) },
-        { name: "similar", vec: new Float32Array([0.9, 0.1, 0]) },
-      ];
-      const ranked = rankBySimilarity(query, items, (item) => item.vec);
-      expect(ranked[0].item.name).toBe("identical");
-      expect(ranked[1].item.name).toBe("similar");
-      expect(ranked[2].item.name).toBe("orthogonal");
-    });
-
-    it("returns items paired with scores", () => {
-      const query = new Float32Array([1, 0]);
-      const items = [{ vec: new Float32Array([1, 0]) }];
-      const ranked = rankBySimilarity(query, items, (item) => item.vec);
-      expect(ranked).toHaveLength(1);
-      expect(ranked[0]).toHaveProperty("item");
-      expect(ranked[0]).toHaveProperty("score");
-      expect(ranked[0].score).toBeCloseTo(1.0, 6);
     });
   });
 });

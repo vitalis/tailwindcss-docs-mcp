@@ -1,4 +1,4 @@
-import { chunkDocument, contentHash } from "../pipeline/chunker.js";
+import { chunkDocument } from "../pipeline/chunker.js";
 import { buildEmbeddingInput } from "../pipeline/embedder.js";
 import type { Embedder } from "../pipeline/embedder.js";
 import { fetchDocs, readCachedDocs } from "../pipeline/fetcher.js";

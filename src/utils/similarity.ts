@@ -24,21 +24,3 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   if (magnitude === 0) return 0;
   return dot / magnitude;
 }
-
-/**
- * Rank an array of items by cosine similarity to a query vector.
- *
- * Returns items sorted by descending similarity score, each paired with its score.
- */
-export function rankBySimilarity<T>(
-  queryEmbedding: Float32Array,
-  items: T[],
-  getEmbedding: (item: T) => Float32Array,
-): Array<{ item: T; score: number }> {
-  return items
-    .map((item) => ({
-      item,
-      score: cosineSimilarity(queryEmbedding, getEmbedding(item)),
-    }))
-    .sort((a, b) => b.score - a.score);
-}

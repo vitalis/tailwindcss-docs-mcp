@@ -159,7 +159,7 @@ function parseMdx(raw: string): CleanDocument {
 }
 ```
 
-**Libraries**: `unified` + `remark-mdx` + `remark-stringify` — battle-tested MDX→markdown pipeline.
+**Implementation**: Regex-based pipeline — strips frontmatter, imports, exports, JSX components, and code block metadata via targeted regular expressions. No AST parser needed since Tailwind docs follow a consistent MDX structure.
 
 **Output per file**:
 
@@ -439,11 +439,11 @@ tailwindcss-docs-mcp/
 │   │   ├── chunker.ts        # Heading-based splitting
 │   │   └── embedder.ts       # In-process ONNX embedding
 │   ├── storage/
-│   │   ├── database.ts       # SQLite setup
-│   │   ├── migrations.ts     # Schema creation
+│   │   ├── database.ts       # SQLite setup + schema DDL
 │   │   └── search.ts         # Hybrid semantic + keyword search
 │   └── utils/
 │       ├── config.ts         # Environment variables
+│       ├── similarity.ts     # Cosine similarity
 │       └── categories.ts     # Utility category mapping
 ├── package.json
 ├── tsconfig.json
@@ -469,13 +469,13 @@ End users do **not** need Bun. The package publishes compiled JavaScript to npm,
 
 ## Dependencies
 
-| Package                                       | Purpose                          | Notes                                     |
-| --------------------------------------------- | -------------------------------- | ----------------------------------------- |
-| `@modelcontextprotocol/sdk`                   | MCP server framework             | Core                                      |
-| `@huggingface/transformers`                   | In-process ONNX embeddings       | Successor to `@xenova/transformers` (v3+) |
-| `better-sqlite3`                              | SQLite driver (Node.js fallback) | Not needed when running under Bun         |
-| `unified` + `remark-mdx` + `remark-stringify` | MDX parsing                      | Battle-tested MDX→markdown pipeline       |
-| `octokit`                                     | GitHub API client                | Fetch docs from tailwindlabs repo         |
+| Package                     | Purpose                          | Notes                                     |
+| --------------------------- | -------------------------------- | ----------------------------------------- |
+| `@modelcontextprotocol/sdk` | MCP server framework             | Core                                      |
+| `@huggingface/transformers` | In-process ONNX embeddings       | Successor to `@xenova/transformers` (v3+) |
+| `better-sqlite3`            | SQLite driver (Node.js fallback) | Not needed when running under Bun         |
+| `zod`                       | Schema validation                | Input validation for MCP tool parameters  |
+| `octokit`                   | GitHub API client                | Fetch docs from tailwindlabs repo         |
 
 **Runtime dependencies**: None. No external services required. The ONNX embedding model downloads automatically on first use (~27 MB, cached locally).
 
