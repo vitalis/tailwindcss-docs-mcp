@@ -57,7 +57,7 @@ export async function handleFetchDocs(
   await fetchDocs(config, { version, force });
 
   // Step 1b: Read cached files
-  const rawFiles = await readCachedDocs(config, version);
+  const rawFiles = readCachedDocs(config, version);
   if (rawFiles.length === 0) {
     return {
       message: "No documentation files found.",

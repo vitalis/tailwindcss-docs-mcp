@@ -24,13 +24,13 @@ describe("Fetcher", () => {
   });
 
   describe("readCachedDocs", () => {
-    it("returns empty array when directory does not exist", async () => {
+    it("returns empty array when directory does not exist", () => {
       const config = testConfig();
-      const result = await readCachedDocs(config, "v3");
+      const result = readCachedDocs(config, "v3");
       expect(result).toHaveLength(0);
     });
 
-    it("reads MDX files from cache directory", async () => {
+    it("reads MDX files from cache directory", () => {
       const config = testConfig();
       const dir = join(config.rawDir, "v3");
       mkdirSync(dir, { recursive: true });
@@ -38,25 +38,25 @@ describe("Fetcher", () => {
       writeFileSync(join(dir, "padding.mdx"), "---\ntitle: Padding\n---\n\n## Usage", "utf-8");
       writeFileSync(join(dir, "margin.mdx"), "---\ntitle: Margin\n---\n\n## Usage", "utf-8");
 
-      const result = await readCachedDocs(config, "v3");
+      const result = readCachedDocs(config, "v3");
       expect(result).toHaveLength(2);
 
       const slugs = result.map((r) => r.slug).sort();
       expect(slugs).toEqual(["margin", "padding"]);
     });
 
-    it("extracts slug from filename", async () => {
+    it("extracts slug from filename", () => {
       const config = testConfig();
       const dir = join(config.rawDir, "v3");
       mkdirSync(dir, { recursive: true });
 
       writeFileSync(join(dir, "grid-template-columns.mdx"), "content", "utf-8");
 
-      const result = await readCachedDocs(config, "v3");
+      const result = readCachedDocs(config, "v3");
       expect(result[0].slug).toBe("grid-template-columns");
     });
 
-    it("reads file content correctly", async () => {
+    it("reads file content correctly", () => {
       const config = testConfig();
       const dir = join(config.rawDir, "v3");
       mkdirSync(dir, { recursive: true });
@@ -64,11 +64,11 @@ describe("Fetcher", () => {
       const content = "---\ntitle: Padding\n---\n\n## Basic usage\n\nUse `p-4`.";
       writeFileSync(join(dir, "padding.mdx"), content, "utf-8");
 
-      const result = await readCachedDocs(config, "v3");
+      const result = readCachedDocs(config, "v3");
       expect(result[0].content).toBe(content);
     });
 
-    it("ignores non-MDX files", async () => {
+    it("ignores non-MDX files", () => {
       const config = testConfig();
       const dir = join(config.rawDir, "v3");
       mkdirSync(dir, { recursive: true });
@@ -77,23 +77,23 @@ describe("Fetcher", () => {
       writeFileSync(join(dir, "notes.txt"), "not mdx", "utf-8");
       writeFileSync(join(dir, ".gitkeep"), "", "utf-8");
 
-      const result = await readCachedDocs(config, "v3");
+      const result = readCachedDocs(config, "v3");
       expect(result).toHaveLength(1);
       expect(result[0].slug).toBe("padding");
     });
 
-    it("sets correct path relative to docs directory", async () => {
+    it("sets correct path relative to docs directory", () => {
       const config = testConfig();
       const dir = join(config.rawDir, "v3");
       mkdirSync(dir, { recursive: true });
 
       writeFileSync(join(dir, "padding.mdx"), "content", "utf-8");
 
-      const result = await readCachedDocs(config, "v3");
+      const result = readCachedDocs(config, "v3");
       expect(result[0].path).toBe("src/pages/docs/padding.mdx");
     });
 
-    it("reads from correct version directory", async () => {
+    it("reads from correct version directory", () => {
       const config = testConfig();
 
       // Create files in both v3 and v4
@@ -103,8 +103,8 @@ describe("Fetcher", () => {
         writeFileSync(join(dir, `padding-${version}.mdx`), `${version} content`, "utf-8");
       }
 
-      const v3 = await readCachedDocs(config, "v3");
-      const v4 = await readCachedDocs(config, "v4");
+      const v3 = readCachedDocs(config, "v3");
+      const v4 = readCachedDocs(config, "v4");
 
       expect(v3).toHaveLength(1);
       expect(v3[0].slug).toBe("padding-v3");

@@ -182,12 +182,34 @@ interface SqliteDb {
 }
 
 /**
+ * Minimal interface for the subset of bun:sqlite APIs used by this module.
+ * bun:sqlite types are unavailable at compile time under Node, so we constrain
+ * the dynamic import to this shape rather than casting to `any`.
+ */
+interface BunSqliteStatement {
+  get(...params: unknown[]): unknown;
+  all(...params: unknown[]): unknown[];
+  run(...params: unknown[]): void;
+}
+
+interface BunSqliteDb {
+  exec(sql: string): void;
+  query(sql: string): BunSqliteStatement;
+  close(): void;
+}
+
+interface BunSqliteModule {
+  default?: new (path: string) => BunSqliteDb;
+  Database?: new (path: string) => BunSqliteDb;
+}
+
+/**
  * Open a SQLite database using bun:sqlite, wrapping it in SqliteDb.
  */
 async function openBunSqlite(dbPath: string): Promise<SqliteDb> {
-  // biome-ignore lint/suspicious/noExplicitAny: bun:sqlite types are not available at compile time in Node
-  const mod = (await import("bun:sqlite")) as any;
+  const mod = (await import("bun:sqlite")) as BunSqliteModule;
   const BunDatabase = mod.default ?? mod.Database;
+  if (!BunDatabase) throw new Error("bun:sqlite module has no Database export");
   const db = new BunDatabase(dbPath);
 
   // Enable WAL mode for better concurrent read performance
@@ -209,7 +231,9 @@ async function openBunSqlite(dbPath: string): Promise<SqliteDb> {
     },
     queryRun(sql: string, ...params: unknown[]): StatementResult {
       db.query(sql).run(...params);
-      // bun:sqlite doesn't return changes from .run(), so we query it
+      // bun:sqlite doesn't return changes from .run(), so we query it.
+      // Safe: bun:sqlite is synchronous and single-threaded — no write can
+      // interleave between .run() and this SELECT within the same connection.
       const info = db
         .query("SELECT changes() as changes, last_insert_rowid() as lastInsertRowid")
         .get() as {

@@ -186,10 +186,7 @@ async function fetchBlobs(
 /**
  * Read cached MDX files from disk for a given version.
  */
-export async function readCachedDocs(
-  config: Config,
-  version: TailwindVersion,
-): Promise<RawMdxFile[]> {
+export function readCachedDocs(config: Config, version: TailwindVersion): RawMdxFile[] {
   const dir = join(config.rawDir, version);
 
   if (!existsSync(dir)) return [];
