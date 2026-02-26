@@ -39,6 +39,11 @@ describe("Config", () => {
       expect(config.rawDir).toBe(`${config.dataDir}/raw`);
     });
 
+    it("derives modelCacheDir from dataDir", () => {
+      const config = loadConfig();
+      expect(config.modelCacheDir).toBe(`${config.dataDir}/models`);
+    });
+
     it("sets embedding model defaults", () => {
       const config = loadConfig();
       expect(config.embeddingModel).toBe("Snowflake/snowflake-arctic-embed-xs");

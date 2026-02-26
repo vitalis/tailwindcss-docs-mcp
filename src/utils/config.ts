@@ -24,6 +24,8 @@ export interface Config {
   embeddingDimensions: number;
   /** Query prefix required by snowflake-arctic-embed-xs */
   queryPrefix: string;
+  /** Directory for cached ONNX model files */
+  modelCacheDir: string;
 }
 
 /**
@@ -62,5 +64,6 @@ export function loadConfig(): Config {
     embeddingModel: "Snowflake/snowflake-arctic-embed-xs",
     embeddingDimensions: 384,
     queryPrefix: "Represent this sentence for searching relevant passages: ",
+    modelCacheDir: join(dataDir, "models"),
   };
 }

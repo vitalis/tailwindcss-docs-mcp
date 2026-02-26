@@ -51,27 +51,25 @@ export function normalize(vector: Float32Array): Float32Array {
 }
 
 /**
- * Create an embedder instance using @huggingface/transformers with ONNX runtime.
+ * Minimal callable type for the pipeline extractor from @huggingface/transformers.
  *
- * The model (snowflake-arctic-embed-xs) is downloaded on first use and cached locally.
- * Subsequent calls load from cache (~27 MB model file).
- *
- * For search queries, the model requires prepending a specific prefix:
- * "Represent this sentence for searching relevant passages: "
- * This is handled automatically when `isQuery: true` is passed to embed().
+ * The library's `pipeline()` returns a complex union type (`FeatureExtractionPipeline`)
+ * that doesn't narrow to a simple callable signature. We define a minimal type
+ * for the subset of the API we use and cast through `unknown` at the call site.
  */
-export async function createEmbedder(config: Config): Promise<Embedder> {
-  const { pipeline } = await import("@huggingface/transformers");
-  const extractor = await pipeline("feature-extraction", config.embeddingModel, {
-    dtype: "fp32",
-  });
+type PipelineExtractor = (
+  input: string,
+  options: { pooling: "cls" | "mean" | "none"; normalize: boolean },
+) => Promise<{ tolist(): unknown }>;
 
+/**
+ * Build an Embedder from an already-loaded pipeline extractor.
+ * Extracted for reuse between createEmbedder and loadCachedEmbedder.
+ */
+function buildEmbedder(extractor: PipelineExtractor, config: Config): Embedder {
   async function embed(text: string, options?: EmbedOptions): Promise<Float32Array> {
     const input = options?.isQuery ? `${config.queryPrefix}${text}` : text;
-    // normalize: false disables HuggingFace's built-in normalization;
-    // we apply L2 normalization manually below for consistent unit vectors.
     const output = await extractor(input, { pooling: "cls", normalize: false });
-    // tolist() returns number[][] for feature-extraction; we take the first sequence
     const list = output.tolist();
     if (!Array.isArray(list) || !Array.isArray(list[0])) {
       throw new Error(`Unexpected embedding output shape: expected number[][], got ${typeof list}`);
@@ -88,8 +86,6 @@ export async function createEmbedder(config: Config): Promise<Embedder> {
   return {
     embed,
     async embedBatch(texts: string[], options?: EmbedOptions): Promise<Float32Array[]> {
-      // Sequential processing — ONNX runtime is single-threaded, so concurrent
-      // calls would not improve throughput within a single process.
       const results: Float32Array[] = [];
       for (const text of texts) {
         results.push(await embed(text, options));
@@ -98,4 +94,54 @@ export async function createEmbedder(config: Config): Promise<Embedder> {
     },
     isReady: () => true,
   };
+}
+
+/**
+ * Try to load the embedder from local cache only (no network).
+ * Returns null if the model is not cached or cache is corrupted.
+ *
+ * CONCURRENCY: This function and `createEmbedder` both mutate the shared
+ * `env` singleton from @huggingface/transformers. They must NOT be called
+ * concurrently — always await one before starting the other.
+ */
+export async function loadCachedEmbedder(config: Config): Promise<Embedder | null> {
+  const { pipeline, env } = await import("@huggingface/transformers");
+  env.cacheDir = config.modelCacheDir;
+  env.allowRemoteModels = false;
+
+  try {
+    const extractor = await pipeline("feature-extraction", config.embeddingModel, {
+      dtype: "fp32",
+    });
+    return buildEmbedder(extractor as unknown as PipelineExtractor, config);
+  } catch (error: unknown) {
+    console.error("[tailwindcss-docs-mcp] Cache load failed (will download):", error);
+    return null;
+  } finally {
+    env.allowRemoteModels = true;
+  }
+}
+
+/**
+ * Create an embedder, downloading the model if needed.
+ *
+ * The model (snowflake-arctic-embed-xs) is downloaded on first use and cached locally.
+ * Subsequent calls load from cache (~27 MB model file).
+ *
+ * For search queries, the model requires prepending a specific prefix:
+ * "Represent this sentence for searching relevant passages: "
+ * This is handled automatically when `isQuery: true` is passed to embed().
+ *
+ * CONCURRENCY: This function and `loadCachedEmbedder` both mutate the shared
+ * `env` singleton from @huggingface/transformers. They must NOT be called
+ * concurrently — always await one before starting the other.
+ */
+export async function createEmbedder(config: Config): Promise<Embedder> {
+  const { pipeline, env } = await import("@huggingface/transformers");
+  env.cacheDir = config.modelCacheDir;
+  env.allowRemoteModels = true;
+  const extractor = await pipeline("feature-extraction", config.embeddingModel, {
+    dtype: "fp32",
+  });
+  return buildEmbedder(extractor as unknown as PipelineExtractor, config);
 }

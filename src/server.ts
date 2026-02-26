@@ -25,22 +25,57 @@ export const TOOL_NAMES = {
 } as const;
 
 /**
+ * Embedder loading status for observability.
+ */
+export type EmbedderStatus = "pending" | "downloading" | "ready" | "failed";
+
+/**
  * Server dependencies injected at startup.
+ * Embedder may be null if the model is still downloading.
  */
 export interface ServerDeps {
   config: Config;
   db: Database;
-  embedder: Embedder;
+  embedder: Embedder | null;
 }
+
+/**
+ * Handle returned by createServer for post-initialization updates.
+ */
+export interface ServerHandle {
+  /** Set the embedder once it finishes loading in the background. */
+  setEmbedder(embedder: Embedder): void;
+  /** Update the embedder loading status for observability. */
+  setEmbedderStatus(status: EmbedderStatus): void;
+  /** Get the current embedder loading status. */
+  getEmbedderStatus(): EmbedderStatus;
+}
+
+export const EMBEDDER_STATUS_MESSAGES: Record<EmbedderStatus, string> = {
+  pending: "Embedding model is initializing. Please wait a moment and try again.",
+  downloading: "Embedding model is downloading (~27 MB). Please wait and try again.",
+  ready: "Embedding model is ready.",
+  failed: "Embedding model failed to load. Check server logs for details.",
+};
 
 /**
  * Create and configure the MCP server with all tool handlers.
  *
- * Registers the four tools (fetch_docs, search_docs, list_utilities, check_status)
- * and dispatches calls to their respective handlers.
+ * The server starts immediately even if the embedder is not yet available.
+ * Tools that require the embedder (fetch_docs, search_docs) will throw
+ * an error if called before the model has finished loading.
  */
-export async function createServer(deps: ServerDeps): Promise<void> {
-  const { config, db, embedder } = deps;
+export async function createServer(deps: ServerDeps): Promise<ServerHandle> {
+  const { config, db } = deps;
+  let embedder: Embedder | null = deps.embedder;
+  let embedderStatus: EmbedderStatus = deps.embedder ? "ready" : "pending";
+
+  function requireEmbedder(): Embedder {
+    if (!embedder) {
+      throw new Error(EMBEDDER_STATUS_MESSAGES[embedderStatus]);
+    }
+    return embedder;
+  }
 
   const server = new McpServer({
     name: "tailwindcss-docs-mcp",
@@ -59,7 +94,7 @@ export async function createServer(deps: ServerDeps): Promise<void> {
         .describe("Force re-download and re-index even if already cached (default: false)"),
     },
     async (params) => {
-      const result = await handleFetchDocs(params, config, db, embedder);
+      const result = await handleFetchDocs(params, config, db, requireEmbedder());
       return { content: [{ type: "text" as const, text: result.message }] };
     },
   );
@@ -86,13 +121,13 @@ export async function createServer(deps: ServerDeps): Promise<void> {
         .describe("Maximum number of results to return (default: 5)"),
     },
     async (params) => {
-      const result = await handleSearchDocs(params, db, embedder, config.defaultVersion);
+      const result = await handleSearchDocs(params, db, requireEmbedder(), config.defaultVersion);
       const text = formatSearchResults(result);
       return { content: [{ type: "text" as const, text }] };
     },
   );
 
-  // Register list_utilities
+  // Register list_utilities (does not require embedder)
   server.tool(
     TOOL_NAMES.LIST_UTILITIES,
     "List all Tailwind CSS utility categories with descriptions. Useful for discovering what utilities are available.",
@@ -112,7 +147,7 @@ export async function createServer(deps: ServerDeps): Promise<void> {
     },
   );
 
-  // Register check_status
+  // Register check_status (does not require embedder)
   server.tool(
     TOOL_NAMES.CHECK_STATUS,
     "Check the current index status for Tailwind CSS documentation. Shows which versions are indexed, chunk counts, and when they were last updated.",
@@ -123,7 +158,7 @@ export async function createServer(deps: ServerDeps): Promise<void> {
         .describe("Check specific version (v3 or v4). Omit to check all."),
     },
     (params) => {
-      const result = handleCheckStatus(params, db);
+      const result = handleCheckStatus(params, db, embedderStatus);
       return { content: [{ type: "text" as const, text: result.message }] };
     },
   );
@@ -131,4 +166,17 @@ export async function createServer(deps: ServerDeps): Promise<void> {
   // Connect via stdio transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  return {
+    setEmbedder(e: Embedder) {
+      embedder = e;
+      embedderStatus = "ready";
+    },
+    setEmbedderStatus(status: EmbedderStatus) {
+      embedderStatus = status;
+    },
+    getEmbedderStatus() {
+      return embedderStatus;
+    },
+  };
 }

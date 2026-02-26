@@ -115,6 +115,16 @@ Check index state — doc count, chunk count, embedding model, last indexed time
 | --------- | ---------------- | ------- | ----------------------------- |
 | `version` | `"v3"` \| `"v4"` | _(all)_ | Check specific version or all |
 
+## Embedding Model
+
+The embedding model (`snowflake-arctic-embed-xs`, ~27 MB) is managed automatically:
+
+1. **First boot** — model downloads in background. The server starts immediately but `search_docs` and `fetch_docs` will return an error until the download completes.
+2. **Subsequent boots** — model loads from cache (fast, no network). Server is fully operational within seconds.
+3. **Updates** — on each boot, the server checks for model updates in the background. Updates download silently and take effect on the next boot.
+
+No manual model management is required. Model files are cached in `~/.tailwindcss-docs-mcp/models/`.
+
 ## Configuration
 
 | Environment Variable                | Default                   | Description                                                     |
@@ -128,6 +138,7 @@ Check index state — doc count, chunk count, embedding model, last indexed time
 ```
 ~/.tailwindcss-docs-mcp/
 ├── docs.db              # SQLite database (~3 MB) — chunks, embeddings, FTS5 index
+├── models/              # Cached ONNX model files (~27 MB)
 └── raw/
     └── v3/*.mdx         # Cached MDX files from GitHub
 ```
@@ -188,7 +199,7 @@ bunx biome check --write src/  # Auto-fix
 
 ```
 src/
-├── index.ts               # Entry point
+├── index.ts               # Entry point (boot workflow)
 ├── server.ts              # MCP tool registration
 ├── pipeline/
 │   ├── fetcher.ts         # GitHub API download
@@ -227,7 +238,7 @@ src/
 | `octokit`                   | GitHub API client                         |
 | `zod`                       | Input schema validation                   |
 
-No external runtime services required. The ONNX model (~27 MB) downloads on first `fetch_docs` and caches locally.
+No external runtime services required. The ONNX model (~27 MB) downloads automatically on first boot and caches locally.
 
 ## Version Mapping
 

@@ -81,7 +81,7 @@ describe("MCP Tool Handlers", () => {
 
   describe("check_status", () => {
     it("returns 'not indexed' status with no index", async () => {
-      const result = await handleCheckStatus({}, db);
+      const result = handleCheckStatus({}, db, "ready");
       expect(result.indexed).toBe(false);
       expect(result.versions).toHaveLength(0);
       expect(result.message).toContain("Not indexed");
@@ -90,7 +90,7 @@ describe("MCP Tool Handlers", () => {
     it("returns correct counts after indexing", async () => {
       const { chunkCount } = await indexTestDoc(db, config, PADDING_MDX, "padding");
 
-      const result = await handleCheckStatus({ version: "v3" }, db);
+      const result = handleCheckStatus({ version: "v3" }, db, "ready");
       expect(result.indexed).toBe(true);
       expect(result.versions).toHaveLength(1);
       expect(result.versions[0].version).toBe("v3");
@@ -100,19 +100,32 @@ describe("MCP Tool Handlers", () => {
     });
 
     it("formats status as markdown", () => {
-      const result = formatStatus(true, [
-        {
-          version: "v3",
-          doc_count: 10,
-          chunk_count: 50,
-          embedding_model: "test-model",
-          embedding_dimensions: 384,
-          indexed_at: "2024-01-01 00:00:00",
-        },
-      ]);
+      const result = formatStatus(
+        true,
+        [
+          {
+            version: "v3",
+            doc_count: 10,
+            chunk_count: 50,
+            embedding_model: "test-model",
+            embedding_dimensions: 384,
+            indexed_at: "2024-01-01 00:00:00",
+          },
+        ],
+        "ready",
+      );
       expect(result).toContain("# Tailwind CSS Documentation Index Status");
       expect(result).toContain("**Documents**: 10");
       expect(result).toContain("**Chunks**: 50");
+      expect(result).toContain("**Embedding model**: ready");
+    });
+
+    it("shows embedder status in formatted output", () => {
+      const downloading = formatStatus(false, [], "downloading");
+      expect(downloading).toContain("downloading (~27 MB)");
+
+      const failed = formatStatus(false, [], "failed");
+      expect(failed).toContain("failed to load");
     });
   });
 
@@ -283,13 +296,13 @@ describe("MCP Tool Handlers", () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
 
       // Get chunk count before
-      const statusBefore = await handleCheckStatus({ version: "v3" }, db);
+      const statusBefore = handleCheckStatus({ version: "v3" }, db, "ready");
       expect(statusBefore.indexed).toBe(true);
       const chunksBefore = statusBefore.versions[0].chunk_count;
 
       // Re-index the same content — all chunks should still be there
       await indexTestDoc(db, config, PADDING_MDX, "padding");
-      const statusAfter = await handleCheckStatus({ version: "v3" }, db);
+      const statusAfter = handleCheckStatus({ version: "v3" }, db, "ready");
       expect(statusAfter.versions[0].chunk_count).toBe(chunksBefore);
     });
   });

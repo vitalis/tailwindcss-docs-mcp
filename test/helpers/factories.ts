@@ -20,6 +20,7 @@ export function testConfig(overrides?: Partial<Config>): Config {
     embeddingModel: "test-model",
     embeddingDimensions: 384,
     queryPrefix: "test: ",
+    modelCacheDir: `${dataDir}/models`,
     ...overrides,
   };
 }

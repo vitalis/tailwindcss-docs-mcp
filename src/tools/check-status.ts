@@ -1,3 +1,4 @@
+import type { EmbedderStatus } from "../server.js";
 import type { Database, IndexStatus } from "../storage/database.js";
 import type { TailwindVersion } from "../utils/config.js";
 
@@ -17,6 +18,8 @@ export interface CheckStatusResult {
   indexed: boolean;
   /** Status for each requested version */
   versions: IndexStatus[];
+  /** Current embedder loading status */
+  embedderStatus: EmbedderStatus;
   /** Human-readable status message */
   message: string;
 }
@@ -27,24 +30,42 @@ export interface CheckStatusResult {
  * Reports the current index state without triggering any work.
  * Returns doc/chunk counts, embedding model used, and last indexed timestamp.
  */
-export function handleCheckStatus(input: CheckStatusInput, db: Database): CheckStatusResult {
+export function handleCheckStatus(
+  input: CheckStatusInput,
+  db: Database,
+  embedderStatus: EmbedderStatus,
+): CheckStatusResult {
   const versions = db.getIndexStatus(input.version);
   const indexed = versions.length > 0;
 
-  const message = formatStatus(indexed, versions);
+  const message = formatStatus(indexed, versions, embedderStatus);
 
-  return { indexed, versions, message };
+  return { indexed, versions, embedderStatus, message };
 }
 
 /**
  * Format the status as markdown for LLM consumption.
  */
-export function formatStatus(indexed: boolean, versions: IndexStatus[]): string {
-  if (!indexed) {
-    return "Not indexed. Run fetch_docs to index Tailwind CSS documentation.";
-  }
-
+export function formatStatus(
+  indexed: boolean,
+  versions: IndexStatus[],
+  embedderStatus: EmbedderStatus,
+): string {
   const lines: string[] = ["# Tailwind CSS Documentation Index Status\n"];
+
+  // Embedding model status
+  const statusLabels: Record<EmbedderStatus, string> = {
+    pending: "initializing",
+    downloading: "downloading (~27 MB)",
+    ready: "ready",
+    failed: "failed to load",
+  };
+  lines.push(`**Embedding model**: ${statusLabels[embedderStatus]}\n`);
+
+  if (!indexed) {
+    lines.push("Not indexed. Run fetch_docs to index Tailwind CSS documentation.");
+    return lines.join("\n");
+  }
 
   for (const v of versions) {
     lines.push(`## ${v.version}`);
