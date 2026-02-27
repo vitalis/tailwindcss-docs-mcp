@@ -81,6 +81,34 @@ describe("Server startup lifecycle", () => {
     expect(handle.getEmbedderStatus()).toBe("ready");
   });
 
+  it("starts with idle indexing status", async () => {
+    const config = testConfig();
+    const db = await createDatabase(config);
+    cleanups.push(() => db.close());
+
+    const [, serverTransport] = InMemoryTransport.createLinkedPair();
+    const handle = await createServer({ config, db, embedder: null }, serverTransport);
+
+    expect(handle.getIndexingStatus()).toBe("idle");
+  });
+
+  it("tracks indexing status transitions", async () => {
+    const config = testConfig();
+    const db = await createDatabase(config);
+    cleanups.push(() => db.close());
+
+    const [, serverTransport] = InMemoryTransport.createLinkedPair();
+    const handle = await createServer({ config, db, embedder: null }, serverTransport);
+
+    expect(handle.getIndexingStatus()).toBe("idle");
+
+    handle.setIndexingStatus("indexing");
+    expect(handle.getIndexingStatus()).toBe("indexing");
+
+    handle.setIndexingStatus("complete");
+    expect(handle.getIndexingStatus()).toBe("complete");
+  });
+
   it("db.close() is idempotent", async () => {
     const config = testConfig();
     const db = await createDatabase(config);
