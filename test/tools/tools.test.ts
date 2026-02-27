@@ -154,6 +154,12 @@ describe("MCP Tool Handlers", () => {
       expect(formatted).toContain("fetch_docs");
     });
 
+    it("returns 'No results found' for empty results when indexed", () => {
+      const result = { results: [], notIndexed: false };
+      const formatted = formatSearchResults(result);
+      expect(formatted).toBe("No results found for this query.");
+    });
+
     it("returns search results for valid query", async () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
       const embedder = createMockEmbedder(384);

@@ -10,6 +10,9 @@ import { handleFetchDocs } from "./tools/fetch-docs.js";
 import { formatUtilitiesList, handleListUtilities } from "./tools/list-utilities.js";
 import { formatSearchResults, handleSearchDocs } from "./tools/search-docs.js";
 import type { Config } from "./utils/config.js";
+import type { EmbedderStatus, IndexingStatus } from "./utils/types.js";
+
+export type { EmbedderStatus, IndexingStatus } from "./utils/types.js";
 
 const { version: SERVER_VERSION } = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf-8"),
@@ -24,16 +27,6 @@ export const TOOL_NAMES = {
   LIST_UTILITIES: "list_utilities",
   CHECK_STATUS: "check_status",
 } as const;
-
-/**
- * Embedder loading status for observability.
- */
-export type EmbedderStatus = "pending" | "downloading" | "ready" | "failed";
-
-/**
- * Documentation indexing status for observability.
- */
-export type IndexingStatus = "idle" | "indexing" | "complete" | "failed";
 
 /**
  * Server dependencies injected at startup.

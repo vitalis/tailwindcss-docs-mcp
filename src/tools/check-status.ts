@@ -1,6 +1,6 @@
-import type { EmbedderStatus, IndexingStatus } from "../server.js";
 import type { Database, IndexStatus } from "../storage/database.js";
 import type { TailwindVersion } from "../utils/config.js";
+import type { EmbedderStatus, IndexingStatus } from "../utils/types.js";
 
 /**
  * Input parameters for the check_status MCP tool.

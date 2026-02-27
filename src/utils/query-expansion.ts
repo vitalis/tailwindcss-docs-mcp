@@ -6,8 +6,8 @@
  * class prefixes (e.g., "mx-auto") and documentation titles (e.g., "Margin").
  */
 
-/** Regex to detect Tailwind class names: hyphenated lowercase tokens like text-lg, grid-cols-3 */
-const TAILWIND_CLASS_RE = /\b[a-z]+(?:-[a-z0-9]+)+\b/g;
+/** Regex to detect Tailwind class names: hyphenated lowercase tokens like text-lg, grid-cols-3, -mx-4 */
+const TAILWIND_CLASS_RE = /\b-?[a-z]+(?:-[a-z0-9]+)+\b/g;
 
 /** Font size suffixes used by Tailwind's text-{size} utilities */
 const TEXT_SIZE_RE = /^text-(xs|sm|base|lg|xl|\d+xl)$/;
@@ -27,9 +27,15 @@ const PREFIX_MAP = new Map<string, string>([
   ["auto-cols", "grid auto columns"],
   ["auto-rows", "grid auto rows"],
   ["col-span", "grid column"],
+  ["col-start", "grid column"],
+  ["col-end", "grid column"],
   ["row-span", "grid row"],
+  ["row-start", "grid row"],
+  ["row-end", "grid row"],
   ["space-x", "space between horizontal"],
   ["space-y", "space between vertical"],
+  ["gap-x", "gap horizontal"],
+  ["gap-y", "gap vertical"],
   ["min-w", "min-width"],
   ["max-w", "max-width"],
   ["min-h", "min-height"],
@@ -39,6 +45,8 @@ const PREFIX_MAP = new Map<string, string>([
   ["snap-start", "scroll snap align"],
   ["snap-end", "scroll snap align"],
   ["snap-center", "scroll snap align"],
+  ["line-clamp", "line clamp"],
+  ["will-change", "will-change"],
 
   // ── Single-segment prefixes ────────────────────────────────────
   // Spacing
@@ -63,8 +71,11 @@ const PREFIX_MAP = new Map<string, string>([
   ["font", "font"],
   ["tracking", "letter spacing"],
   ["leading", "line height"],
+  ["decoration", "text decoration"],
+  ["whitespace", "whitespace"],
 
   // Flex & Grid
+  ["flex", "flex"],
   ["gap", "gap"],
   ["justify", "justify content"],
   ["items", "align items"],
@@ -107,6 +118,13 @@ const PREFIX_MAP = new Map<string, string>([
   ["clear", "clear"],
   ["object", "object fit"],
   ["overflow", "overflow"],
+  ["break", "word break"],
+
+  // Position
+  ["top", "position"],
+  ["right", "position"],
+  ["bottom", "position"],
+  ["left", "position"],
 
   // Transforms
   ["scale", "scale transform"],
@@ -135,9 +153,15 @@ const PREFIX_MAP = new Map<string, string>([
   ["accent", "accent color"],
   ["caret", "caret color"],
 
-  // Position
+  // Position (z-index, inset)
   ["z", "z-index"],
   ["inset", "position"],
+
+  // Animation
+  ["animate", "animation"],
+
+  // Accessibility
+  ["sr", "screen reader"],
 ]);
 
 /** text- variants that map to text-align */
@@ -224,7 +248,9 @@ export function expandQuery(query: string): string {
   const expansionTerms: string[] = [];
 
   for (const className of classNames) {
-    const terms = resolveExpansion(className);
+    // Strip leading `-` from negative utilities (e.g., -mx-4 → mx-4)
+    const normalized = className.startsWith("-") ? className.slice(1) : className;
+    const terms = resolveExpansion(normalized);
     if (!terms) continue;
 
     for (const term of terms.split(/\s+/)) {
