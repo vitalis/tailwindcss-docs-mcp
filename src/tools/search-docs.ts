@@ -1,4 +1,5 @@
 import type { Embedder } from "../pipeline/embedder.js";
+import type { IndexingStatus } from "../server.js";
 import type { Database } from "../storage/database.js";
 import { type SearchResult, hybridSearch } from "../storage/search.js";
 import type { TailwindVersion } from "../utils/config.js";
@@ -66,9 +67,18 @@ export async function handleSearchDocs(
  * - Content snippet
  * - Deep link to tailwindcss.com
  */
-export function formatSearchResults(result: SearchDocsResult): string {
+export function formatSearchResults(
+  result: SearchDocsResult,
+  indexingStatus?: IndexingStatus,
+): string {
   if (result.notIndexed) {
-    return "Index not built for this version. Run fetch_docs first.";
+    if (indexingStatus === "indexing") {
+      return "Documentation is being indexed automatically. This takes 1-2 minutes on first run. Please wait a moment and try again.";
+    }
+    if (indexingStatus === "failed") {
+      return "Auto-indexing failed. Run fetch_docs to index manually.";
+    }
+    return "Index not built for this version. Run fetch_docs to index.";
   }
 
   if (result.results.length === 0) {

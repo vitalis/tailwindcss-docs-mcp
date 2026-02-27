@@ -1,4 +1,4 @@
-import type { EmbedderStatus } from "../server.js";
+import type { EmbedderStatus, IndexingStatus } from "../server.js";
 import type { Database, IndexStatus } from "../storage/database.js";
 import type { TailwindVersion } from "../utils/config.js";
 
@@ -34,11 +34,12 @@ export function handleCheckStatus(
   input: CheckStatusInput,
   db: Database,
   embedderStatus: EmbedderStatus,
+  indexingStatus?: IndexingStatus,
 ): CheckStatusResult {
   const versions = db.getIndexStatus(input.version);
   const indexed = versions.length > 0;
 
-  const message = formatStatus(indexed, versions, embedderStatus);
+  const message = formatStatus(indexed, versions, embedderStatus, indexingStatus);
 
   return { indexed, versions, embedderStatus, message };
 }
@@ -50,6 +51,7 @@ export function formatStatus(
   indexed: boolean,
   versions: IndexStatus[],
   embedderStatus: EmbedderStatus,
+  indexingStatus?: IndexingStatus,
 ): string {
   const lines: string[] = ["# Tailwind CSS Documentation Index Status\n"];
 
@@ -63,7 +65,13 @@ export function formatStatus(
   lines.push(`**Embedding model**: ${statusLabels[embedderStatus]}\n`);
 
   if (!indexed) {
-    lines.push("Not indexed. Run fetch_docs to index Tailwind CSS documentation.");
+    if (indexingStatus === "indexing") {
+      lines.push("Auto-indexing in progress. This takes 1-2 minutes on first run.");
+    } else if (indexingStatus === "failed") {
+      lines.push("Auto-indexing failed. Run fetch_docs to index manually.");
+    } else {
+      lines.push("Not indexed. Run fetch_docs to index Tailwind CSS documentation.");
+    }
     return lines.join("\n");
   }
 

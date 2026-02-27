@@ -31,6 +31,11 @@ export const TOOL_NAMES = {
 export type EmbedderStatus = "pending" | "downloading" | "ready" | "failed";
 
 /**
+ * Documentation indexing status for observability.
+ */
+export type IndexingStatus = "idle" | "indexing" | "complete" | "failed";
+
+/**
  * Server dependencies injected at startup.
  * Embedder may be null if the model is still downloading.
  */
@@ -50,6 +55,10 @@ export interface ServerHandle {
   setEmbedderStatus(status: EmbedderStatus): void;
   /** Get the current embedder loading status. */
   getEmbedderStatus(): EmbedderStatus;
+  /** Update the indexing status for observability. */
+  setIndexingStatus(status: IndexingStatus): void;
+  /** Get the current indexing status. */
+  getIndexingStatus(): IndexingStatus;
 }
 
 export const EMBEDDER_STATUS_MESSAGES: Record<EmbedderStatus, string> = {
@@ -70,6 +79,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   const { config, db } = deps;
   let embedder: Embedder | null = deps.embedder;
   let embedderStatus: EmbedderStatus = deps.embedder ? "ready" : "pending";
+  let indexingStatus: IndexingStatus = "idle";
 
   function requireEmbedder(): Embedder {
     if (!embedder) {
@@ -94,7 +104,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   // Register fetch_docs
   server.tool(
     TOOL_NAMES.FETCH_DOCS,
-    "Download and index Tailwind CSS documentation for local semantic search. Only needs to be run once per version. Re-run with force=true to refresh.",
+    "Re-index Tailwind CSS documentation. Docs are indexed automatically on first start. Use this to force refresh after a new Tailwind release, or to index a different version.",
     {
       version: z.enum(["v4", "v3"]).optional().describe("Tailwind CSS major version (default: v4)"),
       force: z
@@ -115,7 +125,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   // Register search_docs
   server.tool(
     TOOL_NAMES.SEARCH_DOCS,
-    "Search Tailwind CSS documentation using natural language. Returns the most relevant documentation snippets with code examples. Requires fetch_docs to be run first.",
+    "Search Tailwind CSS documentation using natural language. Returns the most relevant documentation snippets with code examples.",
     {
       query: z
         .string()
@@ -136,7 +146,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
     async (params) => {
       try {
         const result = await handleSearchDocs(params, db, requireEmbedder(), config.defaultVersion);
-        const text = formatSearchResults(result);
+        const text = formatSearchResults(result, indexingStatus);
         return { content: [{ type: "text" as const, text }] };
       } catch (error) {
         return toolError(error);
@@ -180,7 +190,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
     },
     (params) => {
       try {
-        const result = handleCheckStatus(params, db, embedderStatus);
+        const result = handleCheckStatus(params, db, embedderStatus, indexingStatus);
         return { content: [{ type: "text" as const, text: result.message }] };
       } catch (error) {
         return toolError(error);
@@ -201,6 +211,12 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
     },
     getEmbedderStatus() {
       return embedderStatus;
+    },
+    setIndexingStatus(status: IndexingStatus) {
+      indexingStatus = status;
+    },
+    getIndexingStatus() {
+      return indexingStatus;
     },
   };
 }

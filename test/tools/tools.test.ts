@@ -140,6 +140,20 @@ describe("MCP Tool Handlers", () => {
       expect(formatted).toContain("Index not built");
     });
 
+    it("returns indexing-in-progress message during auto-indexing", () => {
+      const result = { results: [], notIndexed: true };
+      const formatted = formatSearchResults(result, "indexing");
+      expect(formatted).toContain("indexed automatically");
+      expect(formatted).toContain("Please wait");
+    });
+
+    it("returns auto-indexing failed message", () => {
+      const result = { results: [], notIndexed: true };
+      const formatted = formatSearchResults(result, "failed");
+      expect(formatted).toContain("Auto-indexing failed");
+      expect(formatted).toContain("fetch_docs");
+    });
+
     it("returns search results for valid query", async () => {
       await indexTestDoc(db, config, PADDING_MDX, "padding");
       const embedder = createMockEmbedder(384);
