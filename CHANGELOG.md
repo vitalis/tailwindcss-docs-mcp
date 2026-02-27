@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.5.0...v1.5.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* address critical review findings across search, config, and tests ([2082143](https://github.com/vitalis/tailwindcss-docs-mcp/commit/208214327d58b46422ff80b151a342e618821b9a))
+
 ## [1.5.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.4.0...v1.5.0) (2026-02-27)
 
 
