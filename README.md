@@ -49,9 +49,9 @@ Add to your project's `.mcp.json`:
 
 ### First run
 
-On first boot the embedding model (~27 MB) downloads in the background. The server is usable immediately — tools that need embeddings will return a status message until the model is ready. Use `check_status` to verify.
+On first boot the embedding model (~27 MB) downloads in the background. The server is usable immediately — tools that need embeddings will return a status message until the model is ready.
 
-Then ask your assistant: _"Fetch the Tailwind CSS docs"_ — this downloads and indexes the documentation. You only need to do this once.
+The first time you ask a Tailwind question, your assistant will automatically call `fetch_docs` to download and index the documentation. This happens once — subsequent queries use the local index.
 
 ### Example prompts
 
