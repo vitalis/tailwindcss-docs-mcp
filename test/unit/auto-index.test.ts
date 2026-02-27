@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { maybeAutoIndex } from "../../src/auto-index.js";
 import type { Database } from "../../src/storage/database.js";
 import { createDatabase } from "../../src/storage/database.js";
@@ -89,27 +89,24 @@ describe("maybeAutoIndex", () => {
 
   it("calls onError when indexing fails", async () => {
     // No fixture files and mock fetch to reject
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
 
-    try {
-      const embedder = createMockEmbedder(384);
-      const onStart = vi.fn();
-      const onComplete = vi.fn();
-      const onError = vi.fn();
+    const embedder = createMockEmbedder(384);
+    const onStart = vi.fn();
+    const onComplete = vi.fn();
+    const onError = vi.fn();
 
-      await maybeAutoIndex(config, db, embedder, {
-        onStart,
-        onComplete,
-        onError,
-      });
+    await maybeAutoIndex(config, db, embedder, {
+      onStart,
+      onComplete,
+      onError,
+    });
 
-      expect(onStart).toHaveBeenCalledOnce();
-      expect(onComplete).not.toHaveBeenCalled();
-      expect(onError).toHaveBeenCalledOnce();
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    expect(onStart).toHaveBeenCalledOnce();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledOnce();
+
+    vi.unstubAllGlobals();
   });
 
   it("uses the configured default version", async () => {

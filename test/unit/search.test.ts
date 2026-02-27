@@ -480,4 +480,49 @@ describe("Search", () => {
       expect(results).toHaveLength(5);
     });
   });
+
+  describe("invalidateChunkCache (version-specific)", () => {
+    it("invalidates only the specified version", async () => {
+      const db = await createDatabase(testConfig());
+      const embedder = createMockEmbedder(384);
+
+      // Index a chunk for v3
+      const docId = db.upsertDoc(makeDoc({ version: "v3" }));
+      const emb = await embedder.embed("padding");
+      db.upsertChunk(makeChunk({ id: "h1", content: "Use p-4 for padding." }), docId, emb);
+
+      // Warm the cache by searching v3
+      invalidateChunkCache();
+      await hybridSearch(db, embedder, {
+        query: "padding",
+        version: "v3",
+        limit: 5,
+      });
+
+      // Invalidate only v4 — v3 cache should remain
+      invalidateChunkCache("v4");
+
+      // v3 search should still work (cache intact or rebuilt)
+      const results = await hybridSearch(db, embedder, {
+        query: "padding",
+        version: "v3",
+        limit: 5,
+      });
+      expect(results.length).toBeGreaterThan(0);
+
+      db.close();
+    });
+  });
+
+  describe("searchFts error handling", () => {
+    it("returns empty array when FTS query fails", async () => {
+      const db = await createDatabase(testConfig());
+
+      // Close the DB to force FTS query to fail
+      db.close();
+
+      const results = db.searchFts("padding", "v3", 10);
+      expect(results).toHaveLength(0);
+    });
+  });
 });

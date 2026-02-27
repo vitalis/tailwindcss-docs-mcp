@@ -267,5 +267,74 @@ describe("Query Expansion", () => {
       expect(result).toContain("translate");
       expect(result).toContain("transform");
     });
+
+    // ── Negative class names ──────────────────────────────────────
+    it("expands -mx-4 to margin (negative value)", () => {
+      const result = expandQuery("-mx-4 centering");
+      expect(result).toContain("margin");
+    });
+
+    it("expands -translate-x-4 to translate transform (negative value)", () => {
+      const result = expandQuery("-translate-x-4 animation");
+      expect(result).toContain("translate");
+      expect(result).toContain("transform");
+    });
+
+    it("expands -mt-2 to margin (negative value)", () => {
+      const result = expandQuery("-mt-2 spacing");
+      expect(result).toContain("margin");
+    });
+
+    // ── New prefix expansions (round 2) ───────────────────────────
+    it("expands flex-col to flex", () => {
+      const result = expandQuery("flex-col layout");
+      expect(result).toContain("flex");
+    });
+
+    it("expands animate-spin to animation", () => {
+      const result = expandQuery("animate-spin loading");
+      expect(result).toContain("animation");
+    });
+
+    it("expands decoration-wavy to text decoration", () => {
+      const result = expandQuery("decoration-wavy link");
+      expect(result).toContain("text");
+      expect(result).toContain("decoration");
+    });
+
+    it("expands top-4 to position", () => {
+      const result = expandQuery("top-4 absolute");
+      expect(result).toContain("position");
+    });
+
+    it("expands line-clamp-3 to line clamp", () => {
+      const result = expandQuery("line-clamp-3 truncation");
+      expect(result).toContain("line");
+      expect(result).toContain("clamp");
+    });
+
+    it("expands break-words to word break", () => {
+      const result = expandQuery("break-words text");
+      expect(result).toContain("word");
+      expect(result).toContain("break");
+    });
+
+    it("expands sr-only to screen reader", () => {
+      const result = expandQuery("sr-only accessibility");
+      expect(result).toContain("screen");
+      expect(result).toContain("reader");
+    });
+
+    it("expands gap-x-4 to gap horizontal", () => {
+      const result = expandQuery("gap-x-4 grid");
+      expect(result).toContain("gap");
+      expect(result).toContain("horizontal");
+    });
+
+    it("expands col-start-1 to grid column", () => {
+      const result = expandQuery("col-start-1 layout");
+      expect(result).toContain("grid");
+      expect(result).toContain("column");
+    });
   });
 });

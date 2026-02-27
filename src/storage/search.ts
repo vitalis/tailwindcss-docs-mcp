@@ -116,13 +116,16 @@ export async function hybridSearch(
   // keywordSearch is synchronous but wrapped in Promise.all alongside the async
   // semanticSearch for uniform destructuring. No performance impact — sync
   // functions in Promise.all resolve in the same microtask.
+  // Semantic search benefits from expansion (extra terms help the embedding model).
+  // FTS5 keyword search uses the original query — AND-joining expansion terms
+  // (e.g., "font" AND "size") would over-constrain and hurt recall.
   const [semantic, keyword] = await Promise.all([
     semanticSearch(embedder, chunks, expandedQuery, fetchLimit),
-    keywordSearch(db, expandedQuery, version, fetchLimit),
+    keywordSearch(db, query, version, fetchLimit),
   ]);
 
-  // Boost keyword weight when query contains Tailwind class names (e.g., text-lg, pt-6)
-  const hasClassNames = /\b[a-z]+(?:-[a-z0-9]+)+\b/.test(query);
+  // Boost keyword weight when query contains Tailwind class names (e.g., text-lg, pt-6, -mx-4)
+  const hasClassNames = /\b-?[a-z]+(?:-[a-z0-9]+)+\b/.test(query);
   const weights: FusionWeights = hasClassNames
     ? { semantic: 1.0, keyword: 1.5 }
     : { semantic: 1.0, keyword: 1.0 };
