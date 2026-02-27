@@ -35,11 +35,12 @@ export function handleCheckStatus(
   db: Database,
   embedderStatus: EmbedderStatus,
   indexingStatus?: IndexingStatus,
+  serverVersion?: string,
 ): CheckStatusResult {
   const versions = db.getIndexStatus(input.version);
   const indexed = versions.length > 0;
 
-  const message = formatStatus(indexed, versions, embedderStatus, indexingStatus);
+  const message = formatStatus(indexed, versions, embedderStatus, indexingStatus, serverVersion);
 
   return { indexed, versions, embedderStatus, message };
 }
@@ -52,8 +53,14 @@ export function formatStatus(
   versions: IndexStatus[],
   embedderStatus: EmbedderStatus,
   indexingStatus?: IndexingStatus,
+  serverVersion?: string,
 ): string {
   const lines: string[] = ["# Tailwind CSS Documentation Index Status\n"];
+
+  // Server version
+  if (serverVersion) {
+    lines.push(`**Server version**: ${serverVersion}`);
+  }
 
   // Embedding model status
   const statusLabels: Record<EmbedderStatus, string> = {

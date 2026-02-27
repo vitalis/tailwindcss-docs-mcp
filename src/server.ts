@@ -190,7 +190,13 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
     },
     (params) => {
       try {
-        const result = handleCheckStatus(params, db, embedderStatus, indexingStatus);
+        const result = handleCheckStatus(
+          params,
+          db,
+          embedderStatus,
+          indexingStatus,
+          SERVER_VERSION,
+        );
         return { content: [{ type: "text" as const, text: result.message }] };
       } catch (error) {
         return toolError(error);
