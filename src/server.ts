@@ -186,7 +186,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
       version: z
         .enum(["v4", "v3"])
         .optional()
-        .describe("Check specific version (v3 or v4). Omit to check all."),
+        .describe("Check specific version (v4 or v3). Omit to check all."),
     },
     (params) => {
       try {
