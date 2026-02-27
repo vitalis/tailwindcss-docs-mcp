@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.2.0...v1.3.0) (2026-02-27)
+
+
+### Features
+
+* improve MCP tool descriptions for better LLM guidance ([#14](https://github.com/vitalis/tailwindcss-docs-mcp/issues/14)) ([64089d5](https://github.com/vitalis/tailwindcss-docs-mcp/commit/64089d5759dffcda8ee12d5f9f9f83ab15172e4f))
+
+
+### Bug Fixes
+
+* consistent v4-first ordering in check_status parameter description ([521eacf](https://github.com/vitalis/tailwindcss-docs-mcp/commit/521eacf6b119867a9b799bc9de30f6181628bd94))
+
 ## [1.2.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.1.0...v1.2.0) (2026-02-27)
 
 
