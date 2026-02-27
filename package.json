@@ -1,6 +1,6 @@
 {
   "name": "tailwindcss-docs-mcp",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "type": "module",
   "description": "Local semantic search for Tailwind CSS documentation via Model Context Protocol",
   "license": "MIT",

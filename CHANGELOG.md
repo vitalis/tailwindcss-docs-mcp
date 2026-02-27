@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.5.2...v1.5.3) (2026-02-27)
+
+
+### Bug Fixes
+
+* add p-4 prefix expansion and deduplicate class name regex ([b7d9fad](https://github.com/vitalis/tailwindcss-docs-mcp/commit/b7d9fad7fb34d15c718fcf3373eb608759acf78b))
+
 ## [1.5.2](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.5.1...v1.5.2) (2026-02-27)
 
 
