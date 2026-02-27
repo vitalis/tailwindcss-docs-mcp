@@ -6,8 +6,9 @@
  * class prefixes (e.g., "mx-auto") and documentation titles (e.g., "Margin").
  */
 
-/** Regex to detect Tailwind class names: hyphenated lowercase tokens like text-lg, grid-cols-3, -mx-4 */
-export const TAILWIND_CLASS_RE = /\b-?[a-z]+(?:-[a-z0-9]+)+\b/g;
+/** Regex to detect Tailwind class names: hyphenated lowercase tokens like text-lg, grid-cols-3, -mx-4.
+ *  Uses negative lookbehind instead of \b at the start so the leading `-` in negative utilities is captured. */
+export const TAILWIND_CLASS_RE = /(?<!\w)-?[a-z]+(?:-[a-z0-9]+)+\b/g;
 
 /** Font size suffixes used by Tailwind's text-{size} utilities */
 const TEXT_SIZE_RE = /^text-(xs|sm|base|lg|xl|\d+xl)$/;
@@ -26,12 +27,7 @@ const PREFIX_MAP = new Map<string, string>([
   ["grid-rows", "grid template rows"],
   ["auto-cols", "grid auto columns"],
   ["auto-rows", "grid auto rows"],
-  ["col-span", "grid column"],
-  ["col-start", "grid column"],
-  ["col-end", "grid column"],
-  ["row-span", "grid row"],
-  ["row-start", "grid row"],
-  ["row-end", "grid row"],
+  // col-span/start/end and row-span/start/end handled by REGEX_EXPANSIONS
   ["space-x", "space between horizontal"],
   ["space-y", "space between vertical"],
   ["gap-x", "gap horizontal"],
@@ -42,31 +38,12 @@ const PREFIX_MAP = new Map<string, string>([
   ["max-h", "max-height"],
   ["snap-x", "scroll snap x"],
   ["snap-y", "scroll snap y"],
-  ["snap-start", "scroll snap align"],
-  ["snap-end", "scroll snap align"],
-  ["snap-center", "scroll snap align"],
+  // snap-start/end/center handled by REGEX_EXPANSIONS
   ["line-clamp", "line clamp"],
   ["will-change", "will-change"],
 
   // ── Single-segment prefixes ────────────────────────────────────
-  // Spacing
-  ["p", "padding"],
-  ["px", "padding"],
-  ["py", "padding"],
-  ["pt", "padding"],
-  ["pr", "padding"],
-  ["pb", "padding"],
-  ["pl", "padding"],
-  ["ps", "padding"],
-  ["pe", "padding"],
-  ["mx", "margin"],
-  ["my", "margin"],
-  ["mt", "margin"],
-  ["mr", "margin"],
-  ["mb", "margin"],
-  ["ml", "margin"],
-  ["ms", "margin"],
-  ["me", "margin"],
+  // Spacing: p/m + directional suffixes handled by REGEX_EXPANSIONS below
 
   // Typography
   ["font", "font"],
@@ -121,11 +98,7 @@ const PREFIX_MAP = new Map<string, string>([
   ["overflow", "overflow"],
   ["break", "word break"],
 
-  // Position
-  ["top", "position"],
-  ["right", "position"],
-  ["bottom", "position"],
-  ["left", "position"],
+  // Position: top/right/bottom/left handled by REGEX_EXPANSIONS
 
   // Transforms
   ["scale", "scale transform"],
@@ -197,19 +170,30 @@ function resolveTextClass(className: string): string | null {
   return null;
 }
 
+/** Regex-based expansions for groups of prefixes that share the same value */
+const REGEX_EXPANSIONS: [RegExp, string][] = [
+  [/^p[xytrblse]?$/, "padding"],
+  [/^m[xytrblse]?$/, "margin"],
+  [/^col-(span|start|end)$/, "grid column"],
+  [/^row-(span|start|end)$/, "grid row"],
+  [/^snap-(start|end|center)$/, "scroll snap align"],
+  [/^(top|right|bottom|left)$/, "position inset placement"],
+];
+
 /**
  * Resolve expansion terms for a single Tailwind class name.
  *
- * Tries progressively shorter hyphen-delimited prefixes (longest first):
- *   "grid-cols-3" → tries "grid-cols" (match!) → "grid template columns"
- *   "text-lg"     → tries "text" (conditional) → checks size regex → "font size"
+ * Tries the full class name first, then progressively shorter prefixes:
+ *   "snap-center" → tries "snap-center" (regex match!) → "scroll snap align"
+ *   "grid-cols-3" → tries "grid-cols-3" (no match) → "grid-cols" (match!) → "grid template columns"
+ *   "text-lg"     → tries "text-lg" (no match) → "text" (conditional) → "font size"
  *
  * Returns null if no expansion applies.
  */
 function resolveExpansion(className: string): string | null {
   const parts = className.split("-");
 
-  for (let len = parts.length - 1; len >= 1; len--) {
+  for (let len = parts.length; len >= 1; len--) {
     const prefix = parts.slice(0, len).join("-");
 
     // Special case: text- requires disambiguation
@@ -217,6 +201,10 @@ function resolveExpansion(className: string): string | null {
 
     const terms = PREFIX_MAP.get(prefix);
     if (terms) return terms;
+
+    for (const [re, expansion] of REGEX_EXPANSIONS) {
+      if (re.test(prefix)) return expansion;
+    }
   }
 
   return null;

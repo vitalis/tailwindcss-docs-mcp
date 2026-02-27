@@ -1,10 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Database, createDatabase } from "../../src/storage/database.js";
 import { hybridSearch, keywordSearch, semanticSearch } from "../../src/storage/search.js";
-import { loadFixturesIntoDB, testConfig } from "../helpers/factories.js";
+import { FIXTURE_SLUGS, loadFixturesIntoDB, testConfig } from "../helpers/factories.js";
 import { createMockEmbedder } from "../setup.js";
-
-const FIXTURE_SLUGS = ["padding", "dark-mode", "grid-template-columns"];
 
 describe("Hybrid Search Fusion", () => {
   let db: Database;

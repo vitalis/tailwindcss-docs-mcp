@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { chunkDocument } from "../../src/pipeline/chunker.js";
 import type { Chunk } from "../../src/pipeline/chunker.js";
-import { buildEmbeddingInput } from "../../src/pipeline/embedder.js";
+import { buildEmbeddingInput, normalize } from "../../src/pipeline/embedder.js";
 import type { Embedder } from "../../src/pipeline/embedder.js";
 import { parseMdx } from "../../src/pipeline/parser.js";
 import type { CleanDocument } from "../../src/pipeline/parser.js";
@@ -53,21 +53,18 @@ export function makeChunk(overrides?: Partial<Chunk>): Chunk {
 }
 
 /** Create a deterministic Float32Array from a seed. Optionally normalized to unit length. */
-export function makeFakeEmbedding(seed = 42, dims = 384, normalize = false): Float32Array {
+export function makeFakeEmbedding(seed = 42, dims = 384, shouldNormalize = false): Float32Array {
   const vec = new Float32Array(dims);
   let val = seed;
   for (let i = 0; i < dims; i++) {
     val = (val * 1103515245 + 12345) | 0;
     vec[i] = (val & 0x7fffffff) / 0x7fffffff;
   }
-  if (normalize) {
-    let mag = 0;
-    for (let i = 0; i < dims; i++) mag += vec[i] * vec[i];
-    mag = Math.sqrt(mag);
-    if (mag > 0) for (let i = 0; i < dims; i++) vec[i] /= mag;
-  }
-  return vec;
+  return shouldNormalize ? normalize(vec) : vec;
 }
+
+/** Standard fixture slugs used by integration tests. */
+export const FIXTURE_SLUGS: readonly string[] = ["padding", "dark-mode", "grid-template-columns"];
 
 /** Path to the MDX fixtures directory. */
 const FIXTURES_DIR = new URL("../fixtures/mdx", import.meta.url).pathname;
@@ -81,7 +78,7 @@ const FIXTURES_DIR = new URL("../fixtures/mdx", import.meta.url).pathname;
 export async function loadFixturesIntoDB(
   db: Database,
   embedder: Embedder,
-  slugs: string[],
+  slugs: readonly string[],
   version: TailwindVersion = "v3",
 ): Promise<void> {
   for (const slug of slugs) {

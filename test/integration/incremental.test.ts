@@ -4,12 +4,8 @@ import { chunkDocument } from "../../src/pipeline/chunker.js";
 import { buildEmbeddingInput } from "../../src/pipeline/embedder.js";
 import { type CleanDocument, parseMdx } from "../../src/pipeline/parser.js";
 import { type Database, createDatabase } from "../../src/storage/database.js";
-import { testConfig } from "../helpers/factories.js";
-import { createMockEmbedder } from "../setup.js";
-
-const FIXTURES_DIR = new URL("../fixtures/mdx", import.meta.url).pathname;
-
-const FIXTURE_SLUGS = ["padding", "dark-mode", "grid-template-columns"];
+import { FIXTURE_SLUGS, testConfig } from "../helpers/factories.js";
+import { FIXTURES_DIR, createMockEmbedder } from "../setup.js";
 
 /**
  * Run the indexing pipeline for a set of documents.

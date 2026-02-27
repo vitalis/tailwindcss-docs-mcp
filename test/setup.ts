@@ -9,6 +9,7 @@
  */
 
 import { afterAll, beforeAll } from "vitest";
+import { normalize } from "../src/pipeline/embedder.js";
 
 /**
  * Path to the MDX fixtures directory.
@@ -54,18 +55,7 @@ export function createMockEmbedder(dimensions = 384) {
         hash = (hash * 1103515245 + 12345) | 0;
         vector[i] = (hash & 0x7fffffff) / 0x7fffffff;
       }
-      // Normalize to unit vector
-      let magnitude = 0;
-      for (let i = 0; i < dimensions; i++) {
-        magnitude += vector[i] * vector[i];
-      }
-      magnitude = Math.sqrt(magnitude);
-      if (magnitude > 0) {
-        for (let i = 0; i < dimensions; i++) {
-          vector[i] /= magnitude;
-        }
-      }
-      return vector;
+      return normalize(vector);
     },
 
     async embedBatch(texts: string[]): Promise<Float32Array[]> {

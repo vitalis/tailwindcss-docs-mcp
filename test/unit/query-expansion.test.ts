@@ -49,6 +49,16 @@ describe("Query Expansion", () => {
       expect(result).toContain("padding");
     });
 
+    it("expands m-4 to include margin", () => {
+      const result = expandQuery("m-4 spacing");
+      expect(result).toContain("margin");
+    });
+
+    it("expands m-auto to include margin", () => {
+      const result = expandQuery("m-auto centering");
+      expect(result).toContain("margin");
+    });
+
     // ── Grid expansions ──────────────────────────────────────────
     it("expands grid-cols-3 to include grid template columns", () => {
       const result = expandQuery("grid-cols-3 tailwind grid");
@@ -307,9 +317,11 @@ describe("Query Expansion", () => {
       expect(result).toContain("decoration");
     });
 
-    it("expands top-4 to position", () => {
+    it("expands top-4 to position inset placement", () => {
       const result = expandQuery("top-4 absolute");
       expect(result).toContain("position");
+      expect(result).toContain("inset");
+      expect(result).toContain("placement");
     });
 
     it("expands line-clamp-3 to line clamp", () => {
@@ -340,6 +352,40 @@ describe("Query Expansion", () => {
       const result = expandQuery("col-start-1 layout");
       expect(result).toContain("grid");
       expect(result).toContain("column");
+    });
+
+    // ── 2-part class names (full name = prefix) ──────────────────
+    it("expands snap-center to scroll snap align", () => {
+      const result = expandQuery("snap-center container");
+      expect(result).toContain("scroll");
+      expect(result).toContain("snap");
+      expect(result).toContain("align");
+    });
+
+    it("expands snap-start to scroll snap align", () => {
+      const result = expandQuery("snap-start container");
+      expect(result).toContain("scroll");
+      expect(result).toContain("snap");
+      expect(result).toContain("align");
+    });
+
+    it("expands snap-end to scroll snap align", () => {
+      const result = expandQuery("snap-end container");
+      expect(result).toContain("scroll");
+      expect(result).toContain("snap");
+      expect(result).toContain("align");
+    });
+
+    it("expands snap-x to scroll snap x (2-part PREFIX_MAP key)", () => {
+      const result = expandQuery("snap-x container");
+      expect(result).toContain("scroll");
+      expect(result).toContain("snap");
+    });
+
+    it("expands snap-y to scroll snap y (2-part PREFIX_MAP key)", () => {
+      const result = expandQuery("snap-y container");
+      expect(result).toContain("scroll");
+      expect(result).toContain("snap");
     });
   });
 });

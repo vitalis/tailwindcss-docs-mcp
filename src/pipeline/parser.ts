@@ -1,3 +1,5 @@
+import { DOCS_BASE_URL } from "../utils/config.js";
+
 /**
  * A parsed and cleaned document ready for chunking.
  */
@@ -48,7 +50,7 @@ export function parseMdx(raw: string, slug: string, version: string): CleanDocum
     title: frontmatter.title,
     description: frontmatter.description,
     content: content.trim(),
-    url: `https://tailwindcss.com/docs/${slug}`,
+    url: `${DOCS_BASE_URL}/${slug}`,
     version,
   };
 }

@@ -204,6 +204,30 @@ interface BunSqliteModule {
 }
 
 /**
+ * Create a statement cache that memoizes compiled prepared statements.
+ * Shared by both SQLite driver implementations to avoid duplicating the caching logic.
+ */
+function createStmtCache<T>(prepare: (sql: string) => T): {
+  get: (sql: string) => T;
+  clear: () => void;
+} {
+  const cache = new Map<string, T>();
+  return {
+    get(sql: string): T {
+      let s = cache.get(sql);
+      if (!s) {
+        s = prepare(sql);
+        cache.set(sql, s);
+      }
+      return s;
+    },
+    clear(): void {
+      cache.clear();
+    },
+  };
+}
+
+/**
  * Open a SQLite database using bun:sqlite, wrapping it in SqliteDb.
  */
 async function openBunSqlite(dbPath: string): Promise<SqliteDb> {
@@ -219,44 +243,35 @@ async function openBunSqlite(dbPath: string): Promise<SqliteDb> {
   // Wait up to 5s for locks instead of failing immediately with SQLITE_BUSY
   db.exec("PRAGMA busy_timeout=5000");
 
-  // Cache compiled statements to avoid re-calling db.query() on every operation.
-  const stmtCache = new Map<string, BunSqliteStatement>();
-  function stmt(sql: string): BunSqliteStatement {
-    let s = stmtCache.get(sql);
-    if (!s) {
-      s = db.query(sql);
-      stmtCache.set(sql, s);
-    }
-    return s;
-  }
+  const stmts = createStmtCache<BunSqliteStatement>((sql) => db.query(sql));
 
   return {
     exec(sql: string): void {
       db.exec(sql);
     },
     queryGet<T>(sql: string, ...params: unknown[]): T | undefined {
-      const result = stmt(sql).get(...params);
+      const result = stmts.get(sql).get(...params);
       // bun:sqlite returns null for no match; normalize to undefined
       return (result ?? undefined) as T | undefined;
     },
     queryAll<T>(sql: string, ...params: unknown[]): T[] {
-      return stmt(sql).all(...params) as T[];
+      return stmts.get(sql).all(...params) as T[];
     },
     queryRun(sql: string, ...params: unknown[]): StatementResult {
-      stmt(sql).run(...params);
+      stmts.get(sql).run(...params);
       // bun:sqlite doesn't return changes from .run(), so we query it.
       // Safe: bun:sqlite is synchronous and single-threaded — no write can
       // interleave between .run() and this SELECT within the same connection.
-      const info = stmt(
-        "SELECT changes() as changes, last_insert_rowid() as lastInsertRowid",
-      ).get() as {
+      const info = stmts
+        .get("SELECT changes() as changes, last_insert_rowid() as lastInsertRowid")
+        .get() as {
         changes: number;
         lastInsertRowid: number;
       };
       return info;
     },
     close(): void {
-      stmtCache.clear();
+      stmts.clear();
       db.close();
     },
   };
@@ -277,39 +292,30 @@ async function openBetterSqlite3(dbPath: string): Promise<SqliteDb> {
   // Wait up to 5s for locks instead of failing immediately with SQLITE_BUSY
   db.pragma("busy_timeout=5000");
 
-  // Cache compiled statements to avoid re-calling db.prepare() on every operation.
   // Use `any` for the cached statement type because better-sqlite3's Statement
   // generic overloads are incompatible with unknown[] spread args at the type level.
   // biome-ignore lint/suspicious/noExplicitAny: better-sqlite3 Statement generics
-  const stmtCache = new Map<string, any>();
-  function stmt(sql: string) {
-    let s = stmtCache.get(sql);
-    if (!s) {
-      s = db.prepare(sql);
-      stmtCache.set(sql, s);
-    }
-    return s;
-  }
+  const stmts = createStmtCache<any>((sql) => db.prepare(sql));
 
   return {
     exec(sql: string): void {
       db.exec(sql);
     },
     queryGet<T>(sql: string, ...params: unknown[]): T | undefined {
-      return stmt(sql).get(...params) as T | undefined;
+      return stmts.get(sql).get(...params) as T | undefined;
     },
     queryAll<T>(sql: string, ...params: unknown[]): T[] {
-      return stmt(sql).all(...params) as T[];
+      return stmts.get(sql).all(...params) as T[];
     },
     queryRun(sql: string, ...params: unknown[]): StatementResult {
-      const result = stmt(sql).run(...params);
+      const result = stmts.get(sql).run(...params);
       return {
         changes: result.changes,
         lastInsertRowid: Number(result.lastInsertRowid),
       };
     },
     close(): void {
-      stmtCache.clear();
+      stmts.clear();
       db.close();
     },
   };
