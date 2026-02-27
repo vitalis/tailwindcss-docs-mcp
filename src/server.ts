@@ -125,7 +125,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   // Register search_docs
   server.tool(
     TOOL_NAMES.SEARCH_DOCS,
-    "Search Tailwind CSS documentation using natural language. Use this when the user asks a specific question about Tailwind utilities, classes, configuration, or concepts (e.g., 'how do I center a div', 'dark mode setup', 'responsive padding'). Returns ranked documentation sections with headings, content, code examples, and links to tailwindcss.com. Do NOT use this for browsing or discovering what utility categories exist — use list_utilities instead. Present the returned markdown documentation directly to the user without reformatting into tables or summaries.",
+    "Search Tailwind CSS documentation using natural language. Use this when the user asks a specific question about Tailwind utilities, classes, configuration, or concepts (e.g., 'how do I center a div', 'dark mode setup', 'responsive padding'). Returns ranked documentation sections with headings, content, code examples, and links to tailwindcss.com. Do NOT use this for browsing or discovering what utility categories exist — use list_utilities instead. IMPORTANT: The response is pre-formatted markdown with clickable links to tailwindcss.com. Output it verbatim to the user. Do NOT reformat into tables, do NOT summarize, do NOT strip the markdown links. Reformatting destroys the documentation links.",
     {
       query: z
         .string()
@@ -157,7 +157,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   // Register list_utilities (does not require embedder)
   server.tool(
     TOOL_NAMES.LIST_UTILITIES,
-    "List Tailwind CSS utility categories and their documentation pages. Use this when the user wants to browse, discover, or explore what utilities are available (e.g., 'what layout utilities exist', 'show me the effects category', 'list all spacing utilities'). Returns category names with descriptions and links to each utility's documentation page on tailwindcss.com. This is a browsing tool — it shows what categories and pages exist, not detailed usage. Do NOT follow up with search_docs unless the user explicitly asks a specific question. Present the returned list directly to the user.",
+    "List Tailwind CSS utility categories and their documentation pages. Use this when the user wants to browse, discover, or explore what utilities are available (e.g., 'what layout utilities exist', 'show me the effects category', 'list all spacing utilities'). Returns category names with descriptions and links to each utility's documentation page on tailwindcss.com. This is a browsing tool — it shows what categories and pages exist, not detailed usage. Do NOT follow up with search_docs unless the user explicitly asks a specific question. IMPORTANT: The response is pre-formatted markdown with clickable links to tailwindcss.com. Output it verbatim to the user. Do NOT reformat into tables, do NOT summarize, do NOT strip the markdown links. Reformatting destroys the documentation links.",
     {
       category: z
         .string()
