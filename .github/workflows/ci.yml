@@ -62,6 +62,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          registry-url: 'https://registry.npmjs.org'
+
       - uses: jdx/mise-action@v3
 
       - uses: actions/cache@v4
