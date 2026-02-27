@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.0.0...v1.0.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* **ci:** configure npm registry auth for publish step ([9fe24de](https://github.com/vitalis/tailwindcss-docs-mcp/commit/9fe24def2156c882e5a1f1853eb2606388b527b3))
+
 ## 1.0.0 (2026-02-27)
 
 
