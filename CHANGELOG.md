@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.4.0...v1.5.0) (2026-02-27)
+
+
+### Features
+
+* stronger presentation guidance in tool descriptions ([#18](https://github.com/vitalis/tailwindcss-docs-mcp/issues/18)) ([8c1bf5d](https://github.com/vitalis/tailwindcss-docs-mcp/commit/8c1bf5d97ec72de488ef07f8fb097bea883c56b2))
+
 ## [1.4.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.3.0...v1.4.0) (2026-02-27)
 
 
