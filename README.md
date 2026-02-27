@@ -1,6 +1,7 @@
 # tailwindcss-docs-mcp
 
 [![npm version](https://img.shields.io/npm/v/tailwindcss-docs-mcp)](https://www.npmjs.com/package/tailwindcss-docs-mcp)
+[![Smithery](https://smithery.ai/badge/@vitalis/tailwindcss-docs-mcp)](https://smithery.ai/server/@vitalis/tailwindcss-docs-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Local semantic search for Tailwind CSS documentation via [Model Context Protocol](https://modelcontextprotocol.io).
@@ -43,6 +44,15 @@ Add to your project's `.mcp.json`:
     }
   }
 }
+```
+
+</details>
+
+<details>
+<summary>Smithery</summary>
+
+```bash
+npx -y @smithery/cli@latest install @vitalis/tailwindcss-docs-mcp --client claude
 ```
 
 </details>
