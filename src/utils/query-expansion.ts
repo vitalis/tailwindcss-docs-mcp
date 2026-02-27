@@ -34,6 +34,11 @@ const PREFIX_MAP = new Map<string, string>([
   ["max-w", "max-width"],
   ["min-h", "min-height"],
   ["max-h", "max-height"],
+  ["snap-x", "scroll snap x"],
+  ["snap-y", "scroll snap y"],
+  ["snap-start", "scroll snap align"],
+  ["snap-end", "scroll snap align"],
+  ["snap-center", "scroll snap align"],
 
   // ── Single-segment prefixes ────────────────────────────────────
   // Spacing
@@ -59,38 +64,111 @@ const PREFIX_MAP = new Map<string, string>([
   ["tracking", "letter spacing"],
   ["leading", "line height"],
 
-  // Grid & Flex
+  // Flex & Grid
   ["gap", "gap"],
+  ["justify", "justify content"],
+  ["items", "align items"],
+  ["self", "align self"],
+  ["content", "align content"],
+  ["place", "place items"],
+  ["order", "order"],
+  ["basis", "flex basis"],
+  ["grow", "flex grow"],
+  ["shrink", "flex shrink"],
 
   // Background
   ["bg", "background"],
 
   // Borders
   ["rounded", "border radius"],
+  ["border", "border"],
+  ["divide", "divide border"],
+  ["ring", "ring"],
+  ["outline", "outline"],
 
   // Effects
   ["shadow", "box shadow"],
+  ["opacity", "opacity"],
+  ["blur", "blur filter"],
+  ["brightness", "brightness filter"],
+  ["contrast", "contrast filter"],
+  ["saturate", "saturate filter"],
+  ["backdrop", "backdrop filter"],
 
   // Sizing
   ["w", "width"],
   ["h", "height"],
   ["size", "size"],
 
+  // Layout
+  ["columns", "columns"],
+  ["aspect", "aspect ratio"],
+  ["float", "float"],
+  ["clear", "clear"],
+  ["object", "object fit"],
+  ["overflow", "overflow"],
+
+  // Transforms
+  ["scale", "scale transform"],
+  ["rotate", "rotate transform"],
+  ["translate", "translate transform"],
+  ["skew", "skew transform"],
+
+  // Transitions
+  ["transition", "transition"],
+  ["duration", "transition duration"],
+  ["ease", "transition timing function"],
+  ["delay", "transition delay"],
+
+  // Interactivity
+  ["cursor", "cursor"],
+  ["select", "user select"],
+  ["resize", "resize"],
+  ["scroll", "scroll behavior"],
+  ["touch", "touch action"],
+
+  // SVG
+  ["fill", "fill"],
+  ["stroke", "stroke"],
+
+  // Accent & Caret
+  ["accent", "accent color"],
+  ["caret", "caret color"],
+
   // Position
   ["z", "z-index"],
   ["inset", "position"],
 ]);
 
+/** text- variants that map to text-align */
+const TEXT_ALIGN_VALUES = new Set([
+  "text-center",
+  "text-left",
+  "text-right",
+  "text-justify",
+  "text-start",
+  "text-end",
+]);
+
+/** text- variants that map to text-wrap */
+const TEXT_WRAP_VALUES = new Set(["text-wrap", "text-nowrap", "text-balance", "text-pretty"]);
+
+/** text- variants that map to text-overflow */
+const TEXT_OVERFLOW_VALUES = new Set(["text-ellipsis", "text-clip"]);
+
 /**
  * Disambiguate `text-` class names which map to different CSS properties
- * depending on the suffix (font size vs text color).
+ * depending on the suffix (font size, text color, text-align, text-wrap,
+ * text-overflow).
  *
- * Returns null for unrecognized variants (text-center, text-wrap, etc.)
- * where expansion could hurt more than help.
+ * Returns null for unrecognized variants where expansion could hurt.
  */
 function resolveTextClass(className: string): string | null {
   if (TEXT_SIZE_RE.test(className)) return "font size";
   if (TEXT_COLOR_RE.test(className)) return "text color";
+  if (TEXT_ALIGN_VALUES.has(className)) return "text align";
+  if (TEXT_WRAP_VALUES.has(className)) return "text wrap";
+  if (TEXT_OVERFLOW_VALUES.has(className)) return "text overflow";
   return null;
 }
 

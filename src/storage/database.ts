@@ -510,25 +510,26 @@ export async function createDatabase(config: Config): Promise<Database> {
 
     searchFts(query: string, version: TailwindVersion, limit: number): ChunkRow[] {
       try {
-        // Escape FTS5 special characters by double-quoting each token
-        const escaped = query
+        const tokens = query
           .split(/\s+/)
           .filter((t) => t.length > 0)
-          .map((t) => `"${t.replace(/"/g, '""')}"`)
-          .join(" OR ");
-        if (!escaped) return [];
+          .map((t) => `"${t.replace(/"/g, '""')}"`);
+        if (tokens.length === 0) return [];
 
-        return db.queryAll<ChunkRow>(
-          `SELECT c.* FROM chunks_fts f
+        const ftsQuery = `SELECT c.* FROM chunks_fts f
            JOIN chunks c ON c.id = f.rowid
            JOIN docs d ON c.doc_id = d.id
            WHERE chunks_fts MATCH ? AND d.version = ?
            ORDER BY bm25(chunks_fts)
-           LIMIT ?`,
-          escaped,
-          version,
-          limit,
-        );
+           LIMIT ?`;
+
+        // Try AND first for precision; fall back to OR for recall
+        const andExpr = tokens.join(" AND ");
+        const andResults = db.queryAll<ChunkRow>(ftsQuery, andExpr, version, limit);
+        if (andResults.length > 0) return andResults;
+
+        const orExpr = tokens.join(" OR ");
+        return db.queryAll<ChunkRow>(ftsQuery, orExpr, version, limit);
       } catch (error) {
         console.warn("[tailwindcss-docs-mcp] FTS5 search failed:", error);
         return [];

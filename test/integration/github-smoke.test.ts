@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { GITHUB_REPO, VERSION_BRANCH_MAP } from "../../src/utils/config.js";
+import type { TailwindVersion } from "../../src/utils/config.js";
+import { GITHUB_REPO, VERSION_BRANCH_MAP, VERSION_DOCS_PATH } from "../../src/utils/config.js";
 
 /**
  * Smoke tests that verify our GitHub integration assumptions.
@@ -18,7 +19,7 @@ interface GitTreeItem {
   path?: string;
 }
 
-async function getTreeMdxFiles(branch: string): Promise<GitTreeItem[]> {
+async function getTreeMdxFiles(branch: string, docsPath: string): Promise<GitTreeItem[]> {
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "User-Agent": "tailwindcss-docs-mcp-test",
@@ -43,17 +44,16 @@ async function getTreeMdxFiles(branch: string): Promise<GitTreeItem[]> {
 
   return tree.tree.filter(
     (item) =>
-      item.type === "blob" &&
-      item.path?.startsWith(`${GITHUB_REPO.docsPath}/`) &&
-      item.path.endsWith(".mdx"),
+      item.type === "blob" && item.path?.startsWith(`${docsPath}/`) && item.path.endsWith(".mdx"),
   );
 }
 
 describe.skipIf(!process.env.RUN_NETWORK_TESTS)("GitHub Fetch Smoke Tests", () => {
   for (const [version, branch] of Object.entries(VERSION_BRANCH_MAP)) {
-    describe(`${version} (branch: ${branch})`, () => {
+    const docsPath = VERSION_DOCS_PATH[version as TailwindVersion];
+    describe(`${version} (branch: ${branch}, path: ${docsPath})`, () => {
       it("branch exists and tree contains MDX docs", { timeout: 15_000 }, async () => {
-        const mdxFiles = await getTreeMdxFiles(branch);
+        const mdxFiles = await getTreeMdxFiles(branch, docsPath);
 
         // Tailwind docs should have a substantial number of pages
         expect(mdxFiles.length).toBeGreaterThan(50);
@@ -64,7 +64,7 @@ describe.skipIf(!process.env.RUN_NETWORK_TESTS)("GitHub Fetch Smoke Tests", () =
       });
 
       it("raw file download returns valid MDX", { timeout: 10_000 }, async () => {
-        const url = `${RAW_BASE}/${GITHUB_REPO.owner}/${GITHUB_REPO.repo}/${branch}/${GITHUB_REPO.docsPath}/padding.mdx`;
+        const url = `${RAW_BASE}/${GITHUB_REPO.owner}/${GITHUB_REPO.repo}/${branch}/${docsPath}/padding.mdx`;
         const res = await fetch(url);
 
         expect(res.ok).toBe(true);

@@ -30,10 +30,19 @@ export interface Config {
 
 /**
  * Version-to-branch mapping for the tailwindcss.com repository.
+ * Verified 2026-02-27: master=187 v3 MDX files, main=192 v4 MDX files.
  */
 export const VERSION_BRANCH_MAP: Record<TailwindVersion, string> = {
   v3: "master",
-  v4: "next",
+  v4: "main",
+};
+
+/**
+ * Version-to-docs-path mapping. v3 uses Pages Router layout, v4 uses App Router.
+ */
+export const VERSION_DOCS_PATH: Record<TailwindVersion, string> = {
+  v3: "src/pages/docs",
+  v4: "src/docs",
 };
 
 /**
@@ -42,7 +51,6 @@ export const VERSION_BRANCH_MAP: Record<TailwindVersion, string> = {
 export const GITHUB_REPO = {
   owner: "tailwindlabs",
   repo: "tailwindcss.com",
-  docsPath: "src/pages/docs",
 } as const;
 
 /**

@@ -89,9 +89,19 @@ describe("Query Expansion", () => {
       expect(result).toContain("color");
     });
 
-    it("does not expand ambiguous text- variants", () => {
-      // text-center, text-wrap etc. should not be expanded
-      expect(expandQuery("text-center align")).toBe("text-center align");
+    it("expands text-center to text align", () => {
+      const result = expandQuery("text-center paragraph");
+      expect(result).toContain("align");
+    });
+
+    it("expands text-wrap to text wrap", () => {
+      const result = expandQuery("text-wrap paragraph");
+      expect(result).toContain("wrap");
+    });
+
+    it("expands text-ellipsis to text overflow", () => {
+      const result = expandQuery("text-ellipsis truncation");
+      expect(result).toContain("overflow");
     });
 
     // ── Other prefix expansions ──────────────────────────────────
@@ -188,6 +198,74 @@ describe("Query Expansion", () => {
       expect(result.startsWith(original)).toBe(true);
       expect(result).toContain("border");
       expect(result).toContain("radius");
+    });
+
+    // ── New prefix expansions (critical review additions) ────────
+    it("expands border-2 to border", () => {
+      const result = expandQuery("border-2 card");
+      expect(result).toContain("border");
+    });
+
+    it("expands opacity-50 to opacity", () => {
+      const result = expandQuery("opacity-50 hover");
+      expect(result).toContain("opacity");
+    });
+
+    it("expands justify-center to justify content", () => {
+      const result = expandQuery("justify-center flex");
+      expect(result).toContain("justify");
+      expect(result).toContain("content");
+    });
+
+    it("expands items-center to align items", () => {
+      const result = expandQuery("items-center flex");
+      expect(result).toContain("align");
+      expect(result).toContain("items");
+    });
+
+    it("expands scale-150 to scale transform", () => {
+      const result = expandQuery("scale-150 hover");
+      expect(result).toContain("scale");
+      expect(result).toContain("transform");
+    });
+
+    it("expands duration-300 to transition duration", () => {
+      const result = expandQuery("duration-300 hover");
+      expect(result).toContain("transition");
+      expect(result).toContain("duration");
+    });
+
+    it("expands cursor-pointer to cursor", () => {
+      const result = expandQuery("cursor-pointer button");
+      expect(result).toContain("cursor");
+    });
+
+    it("expands fill-current to fill", () => {
+      const result = expandQuery("fill-current icon");
+      expect(result).toContain("fill");
+    });
+
+    it("expands accent-pink-500 to accent color", () => {
+      const result = expandQuery("accent-pink-500 form");
+      expect(result).toContain("accent");
+      expect(result).toContain("color");
+    });
+
+    it("expands ring-2 to ring", () => {
+      const result = expandQuery("ring-2 focus");
+      expect(result).toContain("ring");
+    });
+
+    it("expands aspect-video to aspect ratio", () => {
+      const result = expandQuery("aspect-video container");
+      expect(result).toContain("aspect");
+      expect(result).toContain("ratio");
+    });
+
+    it("expands translate-x-4 to translate transform", () => {
+      const result = expandQuery("translate-x-4 animation");
+      expect(result).toContain("translate");
+      expect(result).toContain("transform");
     });
   });
 });

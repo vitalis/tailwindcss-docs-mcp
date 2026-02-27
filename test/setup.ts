@@ -34,6 +34,11 @@ export function createMockEmbedder(dimensions = 384) {
       return calls;
     },
 
+    /** Reset recorded calls for test isolation. */
+    clearCalls() {
+      calls.length = 0;
+    },
+
     async embed(
       text: string,
       _options?: import("../src/pipeline/embedder.js").EmbedOptions,
