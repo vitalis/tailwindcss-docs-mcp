@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { Config, TailwindVersion } from "../utils/config.js";
-import { GITHUB_REPO, VERSION_BRANCH_MAP } from "../utils/config.js";
+import { GITHUB_REPO, VERSION_BRANCH_MAP, VERSION_DOCS_PATH } from "../utils/config.js";
 
 /**
  * Options for fetching documentation from GitHub.
  */
 export interface FetchOptions {
-  /** Tailwind CSS major version (maps to branch: master for v3, next for v4) */
+  /** Tailwind CSS major version (maps to branch: master for v3, main for v4) */
   version: TailwindVersion;
   /** Force re-fetch even if cached locally */
   force: boolean;
@@ -106,13 +106,18 @@ export async function fetchDocs(config: Config, options: FetchOptions): Promise<
     `/repos/${GITHUB_REPO.owner}/${GITHUB_REPO.repo}/git/trees/${commitSha}?recursive=true`,
   );
 
-  // Step 2: Filter for MDX files under the docs path
+  // Step 2: Filter for MDX files under the version-specific docs path
+  const docsPath = VERSION_DOCS_PATH[version];
   const mdxFiles = treeData.tree.filter(
     (item) =>
-      item.type === "blob" &&
-      item.path?.startsWith(`${GITHUB_REPO.docsPath}/`) &&
-      item.path.endsWith(".mdx"),
+      item.type === "blob" && item.path?.startsWith(`${docsPath}/`) && item.path.endsWith(".mdx"),
   );
+
+  if (mdxFiles.length === 0) {
+    throw new Error(
+      `No MDX files found at ${docsPath}/ on branch ${branch}. The upstream repository structure may have changed.`,
+    );
+  }
 
   // Step 3: Fetch raw file content in parallel batches
   const blobResult = await fetchRawFiles(branch, mdxFiles, outputDir);
@@ -210,9 +215,10 @@ export function readCachedDocs(config: Config, version: TailwindVersion): RawMdx
 
   const files = readdirSync(dir).filter((f) => f.endsWith(".mdx"));
 
+  const docsPath = VERSION_DOCS_PATH[version];
   return files.map((filename) => ({
     slug: basename(filename, ".mdx"),
     content: readFileSync(join(dir, filename), "utf-8"),
-    path: `${GITHUB_REPO.docsPath}/${filename}`,
+    path: `${docsPath}/${filename}`,
   }));
 }

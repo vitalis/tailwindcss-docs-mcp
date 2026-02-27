@@ -72,6 +72,14 @@ export async function handleFetchDocs(
   }
 }
 
+/**
+ * Reset the fetch lock to a resolved state.
+ * TESTING ONLY — prevents residual state between test runs.
+ */
+export function _resetFetchLockForTesting(): void {
+  fetchLock = Promise.resolve();
+}
+
 async function doFetchDocs(
   input: FetchDocsInput,
   config: Config,

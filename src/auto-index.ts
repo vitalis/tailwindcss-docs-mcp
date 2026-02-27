@@ -28,16 +28,15 @@ export async function maybeAutoIndex(
 ): Promise<void> {
   const version = config.defaultVersion;
 
-  // Skip if already indexed
-  const status = db.getIndexStatus(version);
-  if (status.length > 0) {
-    callbacks.onComplete();
-    return;
-  }
-
-  callbacks.onStart();
-
   try {
+    // Skip if already indexed
+    const status = db.getIndexStatus(version);
+    if (status.length > 0) {
+      callbacks.onComplete();
+      return;
+    }
+
+    callbacks.onStart();
     await handleFetchDocs({ version }, config, db, embedder);
     callbacks.onComplete();
   } catch (error) {

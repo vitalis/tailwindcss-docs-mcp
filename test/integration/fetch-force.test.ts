@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDatabase } from "../../src/storage/database.js";
 import type { Database } from "../../src/storage/database.js";
 import { handleFetchDocs } from "../../src/tools/fetch-docs.js";
@@ -70,21 +70,42 @@ describe("fetch_docs with force=true", () => {
     db = await createDatabase(config);
 
     // Mock fetch to prevent network calls during fetchDocs.
-    // Returns appropriate responses for ref lookup vs tree listing.
+    // Returns appropriate responses for ref lookup, tree listing, and raw file downloads.
     vi.stubGlobal(
       "fetch",
       vi.fn().mockImplementation((url: string) => {
-        const body = url.includes("/git/trees/")
-          ? { tree: [] } // Empty tree — files already cached on disk
-          : { object: { sha: "test-sha" } }; // Ref lookup
+        if (url.includes("/git/trees/")) {
+          // Tree listing — return entries matching v4 docs path (src/docs/)
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                tree: [
+                  { type: "blob", path: "src/docs/padding.mdx" },
+                  { type: "blob", path: "src/docs/margin.mdx" },
+                ],
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        if (url.includes("raw.githubusercontent.com")) {
+          // Raw file download — return MDX content
+          const content = url.includes("padding.mdx") ? PADDING_MDX : MARGIN_MDX;
+          return Promise.resolve(new Response(content, { status: 200 }));
+        }
+        // Ref lookup
         return Promise.resolve(
-          new Response(JSON.stringify(body), {
+          new Response(JSON.stringify({ object: { sha: "test-sha" } }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           }),
         );
       }),
     );
+  });
+
+  beforeEach(() => {
+    embedder.clearCalls();
   });
 
   afterAll(() => {
@@ -102,27 +123,84 @@ describe("fetch_docs with force=true", () => {
   });
 
   it("re-indexes all chunks with force=true", async () => {
-    const embedsBefore = embedder.calls.length;
-
     const result = await handleFetchDocs({ version: "v4", force: true }, config, db, embedder);
 
     expect(result.docCount).toBe(2);
     expect(result.chunkCount).toBeGreaterThan(0);
 
     // force=true should re-embed all chunks, not skip any
-    const embedsAfter = embedder.calls.length;
-    expect(embedsAfter - embedsBefore).toBe(result.chunkCount);
+    expect(embedder.calls.length).toBe(result.chunkCount);
   });
 
   it("skips unchanged chunks on normal re-run (no force)", async () => {
-    const embedsBefore = embedder.calls.length;
-
     const result = await handleFetchDocs({ version: "v4" }, config, db, embedder);
 
     expect(result.docCount).toBe(2);
 
     // Without force, unchanged chunks should be skipped (no new embeds)
-    const embedsAfter = embedder.calls.length;
-    expect(embedsAfter - embedsBefore).toBe(0);
+    expect(embedder.calls.length).toBe(0);
+  });
+});
+
+describe("fetchLock serialization", () => {
+  it("serializes concurrent handleFetchDocs calls", async () => {
+    const { _resetFetchLockForTesting } = await import("../../src/tools/fetch-docs.js");
+    _resetFetchLockForTesting();
+
+    const TEST_LOCK_DIR = "/tmp/tailwindcss-docs-mcp-lock-test";
+    rmSync(TEST_LOCK_DIR, { recursive: true, force: true });
+
+    const lockConfig = baseTestConfig({
+      dataDir: TEST_LOCK_DIR,
+      rawDir: join(TEST_LOCK_DIR, "raw"),
+    });
+    mkdirSync(lockConfig.dataDir, { recursive: true });
+
+    // Set up cached files
+    const dir = join(lockConfig.rawDir, "v4");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "padding.mdx"),
+      "---\ntitle: Padding\n---\n\n## Usage\n\nUse p-4.",
+      "utf-8",
+    );
+
+    const lockDb = await createDatabase(lockConfig);
+    const lockEmbedder = createMockEmbedder(384);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        const body = url.includes("/git/trees/") ? { tree: [] } : { object: { sha: "test-sha" } };
+        return Promise.resolve(
+          new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }),
+    );
+
+    try {
+      const order: string[] = [];
+
+      // Fire two concurrent calls
+      const p1 = handleFetchDocs({ version: "v4" }, lockConfig, lockDb, lockEmbedder).then(() => {
+        order.push("first");
+      });
+      const p2 = handleFetchDocs({ version: "v4" }, lockConfig, lockDb, lockEmbedder).then(() => {
+        order.push("second");
+      });
+
+      await Promise.all([p1, p2]);
+
+      // Both completed, second waited for first
+      expect(order).toEqual(["first", "second"]);
+    } finally {
+      vi.unstubAllGlobals();
+      lockDb.close();
+      rmSync(TEST_LOCK_DIR, { recursive: true, force: true });
+      _resetFetchLockForTesting();
+    }
   });
 });

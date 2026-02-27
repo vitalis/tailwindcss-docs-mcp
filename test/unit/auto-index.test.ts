@@ -138,4 +138,27 @@ describe("maybeAutoIndex", () => {
     expect(onStart).toHaveBeenCalledOnce();
     expect(onComplete).toHaveBeenCalledOnce();
   });
+
+  it("calls onError when db.getIndexStatus throws", async () => {
+    // Close DB to force getIndexStatus to throw
+    db.close();
+
+    const embedder = createMockEmbedder(384);
+    const onStart = vi.fn();
+    const onComplete = vi.fn();
+    const onError = vi.fn();
+
+    await maybeAutoIndex(config, db, embedder, {
+      onStart,
+      onComplete,
+      onError,
+    });
+
+    expect(onStart).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledOnce();
+
+    // Reopen DB for afterEach cleanup
+    db = await createDatabase(config);
+  });
 });

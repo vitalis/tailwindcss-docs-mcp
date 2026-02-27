@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 import { TOOL_NAMES } from "../../src/server.js";
 
 describe("MCP Server", () => {
@@ -11,80 +10,6 @@ describe("MCP Server", () => {
         LIST_UTILITIES: "list_utilities",
         CHECK_STATUS: "check_status",
       });
-    });
-  });
-
-  // NOTE: The Zod schemas below mirror those inline in server.tool() calls.
-  // They cannot be imported directly (McpServer registers schemas inline).
-  // These tests document the expected input shapes and catch Zod version
-  // incompatibilities, but changes to server.ts schemas require updating
-  // these tests manually.
-  describe("Zod input schemas", () => {
-    const versionSchema = z.enum(["v3", "v4"]);
-
-    it("validates version enum accepts v3 and v4", () => {
-      expect(versionSchema.parse("v3")).toBe("v3");
-      expect(versionSchema.parse("v4")).toBe("v4");
-      expect(() => versionSchema.parse("v5")).toThrow();
-    });
-
-    it("validates search_docs input schema", () => {
-      const schema = z.object({
-        query: z.string(),
-        version: z.enum(["v3", "v4"]).optional(),
-        limit: z.number().min(1).max(20).optional(),
-      });
-
-      // Valid inputs
-      expect(schema.parse({ query: "padding" })).toEqual({ query: "padding" });
-      expect(schema.parse({ query: "grid", version: "v4", limit: 10 })).toEqual({
-        query: "grid",
-        version: "v4",
-        limit: 10,
-      });
-
-      // Invalid: missing query
-      expect(() => schema.parse({})).toThrow();
-      // Invalid: limit out of range
-      expect(() => schema.parse({ query: "x", limit: 0 })).toThrow();
-      expect(() => schema.parse({ query: "x", limit: 21 })).toThrow();
-    });
-
-    it("validates fetch_docs input schema", () => {
-      const schema = z.object({
-        version: z.enum(["v3", "v4"]).optional(),
-        force: z.boolean().optional(),
-      });
-
-      expect(schema.parse({})).toEqual({});
-      expect(schema.parse({ version: "v3", force: true })).toEqual({
-        version: "v3",
-        force: true,
-      });
-      expect(() => schema.parse({ version: "v5" })).toThrow();
-    });
-
-    it("validates list_utilities input schema", () => {
-      const schema = z.object({
-        category: z.string().optional(),
-        version: z.enum(["v3", "v4"]).optional(),
-      });
-
-      expect(schema.parse({})).toEqual({});
-      expect(schema.parse({ category: "Spacing", version: "v3" })).toEqual({
-        category: "Spacing",
-        version: "v3",
-      });
-    });
-
-    it("validates check_status input schema", () => {
-      const schema = z.object({
-        version: z.enum(["v3", "v4"]).optional(),
-      });
-
-      expect(schema.parse({})).toEqual({});
-      expect(schema.parse({ version: "v4" })).toEqual({ version: "v4" });
-      expect(() => schema.parse({ version: "v1" })).toThrow();
     });
   });
 

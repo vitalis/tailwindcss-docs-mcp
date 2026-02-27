@@ -85,6 +85,12 @@ function buildEmbedder(extractor: PipelineExtractor, config: Config): Embedder {
 
   return {
     embed,
+    /**
+     * Embed multiple texts sequentially. Intentionally serial — the underlying
+     * ONNX runtime uses single-threaded CPU inference, so parallelism would not
+     * improve throughput. Currently unused in production (fetch-docs.ts calls
+     * embed() directly per chunk); retained for interface completeness.
+     */
     async embedBatch(texts: string[], options?: EmbedOptions): Promise<Float32Array[]> {
       const results: Float32Array[] = [];
       for (const text of texts) {

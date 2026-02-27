@@ -331,6 +331,49 @@ describe("Search", () => {
       const results = keywordSearch(db, "   ", "v3", 10);
       expect(results).toHaveLength(0);
     });
+
+    it("multi-word query uses AND logic for precision", () => {
+      const docId = db.upsertDoc(makeDoc());
+      // Chunk matching both terms
+      db.upsertChunk(
+        makeChunk({
+          id: "both",
+          content: "Use px-4 for horizontal padding on elements.",
+        }),
+        docId,
+        null,
+      );
+      // Chunk matching only one term
+      db.upsertChunk(
+        makeChunk({
+          id: "single",
+          heading: "## Vertical",
+          content: "Use py-4 for vertical spacing.",
+        }),
+        docId,
+        null,
+      );
+
+      const results = keywordSearch(db, "horizontal padding", "v3", 10);
+      // AND-first means the chunk matching both terms should be found
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].chunk.content).toContain("horizontal");
+      expect(results[0].chunk.content).toContain("padding");
+    });
+
+    it("falls back to OR when AND returns no results", () => {
+      const docId = db.upsertDoc(makeDoc());
+      db.upsertChunk(
+        makeChunk({ id: "h1", content: "Use px-4 for horizontal padding." }),
+        docId,
+        null,
+      );
+
+      // "zzzzunique" does not exist in any chunk; AND would return 0
+      const results = keywordSearch(db, "zzzzunique padding", "v3", 10);
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0].chunk.content).toContain("padding");
+    });
   });
 
   describe("hybridSearch", () => {
