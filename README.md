@@ -1,6 +1,6 @@
 # tailwindcss-docs-mcp
 
-[![tailwindcss-docs-mcp](https://img.shields.io/npm/v/tailwindcss-docs-mcp?label=tailwindcss-docs-mcp&labelColor=1a1a1a&color=CB3837&style=for-the-badge&logo=npm&logoColor=fff)](https://www.npmjs.com/package/tailwindcss-docs-mcp)
+[![tailwindcss-docs-mcp](https://img.shields.io/npm/v/tailwindcss-docs-mcp?label=tailwindcss-docs-mcp&labelColor=1a1a1a&color=4169E1&style=for-the-badge&logo=npm&logoColor=fff)](https://www.npmjs.com/package/tailwindcss-docs-mcp)
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind%20CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=fff&labelColor=1a1a1a)](https://tailwindcss.com/docs)
 [![Tailwind CSS v3](https://img.shields.io/badge/Tailwind%20CSS-v3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=fff&labelColor=1a1a1a)](https://v3.tailwindcss.com/docs)
 
