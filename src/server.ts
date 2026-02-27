@@ -104,7 +104,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   // Register fetch_docs
   server.tool(
     TOOL_NAMES.FETCH_DOCS,
-    "Re-index Tailwind CSS documentation. Docs are indexed automatically on first start. Use this to force refresh after a new Tailwind release, or to index a different version.",
+    "Download and index Tailwind CSS documentation from GitHub. Documentation is indexed automatically on first server start — you do not need to call this unless the user explicitly asks to refresh or re-index, or to index a different version than the default. Use with force: true to re-download after a new Tailwind CSS release.",
     {
       version: z.enum(["v4", "v3"]).optional().describe("Tailwind CSS major version (default: v4)"),
       force: z
@@ -125,7 +125,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   // Register search_docs
   server.tool(
     TOOL_NAMES.SEARCH_DOCS,
-    "Search Tailwind CSS documentation using natural language. Returns the most relevant documentation snippets with code examples.",
+    "Search Tailwind CSS documentation using natural language. Use this when the user asks a specific question about Tailwind utilities, classes, configuration, or concepts (e.g., 'how do I center a div', 'dark mode setup', 'responsive padding'). Returns ranked documentation sections with headings, content, code examples, and links to tailwindcss.com. Do NOT use this for browsing or discovering what utility categories exist — use list_utilities instead. Present the returned markdown documentation directly to the user without reformatting into tables or summaries.",
     {
       query: z
         .string()
@@ -133,7 +133,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
           "Natural language search query (e.g., 'how to add responsive padding', 'dark mode configuration', 'grid layout with gaps')",
         ),
       version: z
-        .enum(["v3", "v4"])
+        .enum(["v4", "v3"])
         .optional()
         .describe("Tailwind CSS major version to search (default: v4)"),
       limit: z
@@ -157,7 +157,7 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   // Register list_utilities (does not require embedder)
   server.tool(
     TOOL_NAMES.LIST_UTILITIES,
-    "List all Tailwind CSS utility categories with descriptions. Useful for discovering what utilities are available.",
+    "List Tailwind CSS utility categories and their documentation pages. Use this when the user wants to browse, discover, or explore what utilities are available (e.g., 'what layout utilities exist', 'show me the effects category', 'list all spacing utilities'). Returns category names with descriptions and links to each utility's documentation page on tailwindcss.com. This is a browsing tool — it shows what categories and pages exist, not detailed usage. Do NOT follow up with search_docs unless the user explicitly asks a specific question. Present the returned list directly to the user.",
     {
       category: z
         .string()
@@ -181,10 +181,10 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
   // Register check_status (does not require embedder)
   server.tool(
     TOOL_NAMES.CHECK_STATUS,
-    "Check the current index status for Tailwind CSS documentation. Shows which versions are indexed, chunk counts, and when they were last updated.",
+    "Check the current state of the Tailwind CSS documentation index. Returns which versions are indexed, document and chunk counts, embedding model status, and when each version was last indexed. Use this to verify the index is ready or to diagnose why search_docs returns no results.",
     {
       version: z
-        .enum(["v3", "v4"])
+        .enum(["v4", "v3"])
         .optional()
         .describe("Check specific version (v3 or v4). Omit to check all."),
     },
