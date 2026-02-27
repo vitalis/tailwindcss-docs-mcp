@@ -1,14 +1,10 @@
 # tailwindcss-docs-mcp
 
-[![tailwindcss-docs-mcp](https://img.shields.io/npm/v/tailwindcss-docs-mcp?label=tailwindcss-docs-mcp&labelColor=283C67&color=729AD1&style=for-the-badge&logo=npm&logoColor=fff)](https://www.npmjs.com/package/tailwindcss-docs-mcp)
-[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind%20CSS-v4-283C67?style=for-the-badge&logo=tailwindcss&logoColor=fff)](https://tailwindcss.com/docs)
-[![Tailwind CSS v3](https://img.shields.io/badge/Tailwind%20CSS-v3-283C67?style=for-the-badge&logo=tailwindcss&logoColor=fff)](https://v3.tailwindcss.com/docs)
+[![tailwindcss-docs-mcp](https://img.shields.io/npm/v/tailwindcss-docs-mcp?label=tailwindcss-docs-mcp&labelColor=1a1a1a&color=4169E1&style=for-the-badge&logo=npm&logoColor=fff)](https://www.npmjs.com/package/tailwindcss-docs-mcp)
+[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind%20CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=fff&labelColor=1a1a1a)](https://tailwindcss.com/docs)
+[![Tailwind CSS v3](https://img.shields.io/badge/Tailwind%20CSS-v3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=fff&labelColor=1a1a1a)](https://v3.tailwindcss.com/docs)
 
-## LLMs Hallucinate Tailwind Classes. This Fixes That.
-
-Your AI assistant just confidently suggested `bg-opacity-50` — a class that hasn't existed since Tailwind v3. It also recommended `flex-gap-4`, which was never a thing. It's not searching documentation. It's guessing from training data.
-
-This MCP server downloads the official Tailwind CSS docs, embeds them locally, and gives your assistant real search over real documentation. No API keys, no external services, everything on your machine. Just Node.js 18+.
+Local semantic search for Tailwind CSS documentation via Model Context Protocol. Downloads the official docs, embeds them locally, and gives your assistant real search over real documentation. No API keys, no external services, everything on your machine. Just Node.js 18+.
 
 ## Getting Started
 
@@ -56,12 +52,12 @@ bunx biome check src/   # lint
 
 ## Getting Help
 
-[![GitHub Issues](https://img.shields.io/github/issues/vitalis/tailwindcss-docs-mcp?label=open%20an%20issue&labelColor=283C67&color=729AD1&style=for-the-badge&logo=github&logoColor=fff)](https://github.com/vitalis/tailwindcss-docs-mcp/issues)
+[![GitHub Issues](https://img.shields.io/github/issues/vitalis/tailwindcss-docs-mcp?label=open%20an%20issue&labelColor=1a1a1a&color=238636&style=for-the-badge&logo=github&logoColor=fff)](https://github.com/vitalis/tailwindcss-docs-mcp/issues)
 
 ## Acknowledgments
 
-[![inspired by HexDocs MCP](https://img.shields.io/badge/inspired%20by-HexDocs%20MCP-283C67?style=for-the-badge&logo=github&logoColor=fff)](https://github.com/bradleygolden/hexdocs-mcp)
+[![inspired by HexDocs MCP](https://img.shields.io/badge/inspired%20by-HexDocs%20MCP-6e5494?style=for-the-badge&logo=github&logoColor=fff&labelColor=1a1a1a)](https://github.com/bradleygolden/hexdocs-mcp)
 
 ## License
 
-[![license MIT](https://img.shields.io/badge/license-MIT-283C67?style=for-the-badge)](LICENSE)
+[![license MIT](https://img.shields.io/badge/license-MIT-F5A623?style=for-the-badge&labelColor=1a1a1a)](LICENSE)
