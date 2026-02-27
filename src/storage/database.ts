@@ -515,7 +515,7 @@ export async function createDatabase(config: Config): Promise<Database> {
           .split(/\s+/)
           .filter((t) => t.length > 0)
           .map((t) => `"${t.replace(/"/g, '""')}"`)
-          .join(" ");
+          .join(" OR ");
         if (!escaped) return [];
 
         return db.queryAll<ChunkRow>(

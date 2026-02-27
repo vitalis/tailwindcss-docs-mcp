@@ -6,6 +6,7 @@ import {
   embeddingToBlob,
 } from "../../src/storage/database.js";
 import {
+  type FusionWeights,
   type ScoredChunk,
   fuseResults,
   hybridSearch,
@@ -96,6 +97,39 @@ describe("Search", () => {
       const fused = fuseResults(semantic, keyword, 10);
       for (let i = 1; i < fused.length; i++) {
         expect(fused[i - 1].fusedScore).toBeGreaterThanOrEqual(fused[i].fusedScore);
+      }
+    });
+
+    it("applies keyword weight boost to fused scores", () => {
+      const semantic = [makeScoredChunk(1, 0.9)];
+      const keyword = [makeScoredChunk(1, 0, 1.0)];
+
+      const unweighted = fuseResults(semantic, keyword, 10);
+      const weighted = fuseResults(semantic, keyword, 10, {
+        semantic: 1.0,
+        keyword: 1.5,
+      });
+
+      expect(weighted[0].fusedScore).toBeGreaterThan(unweighted[0].fusedScore);
+
+      const K = 60;
+      const expected = 1.0 * (1 / (K + 1)) + 1.5 * (1 / (K + 1));
+      expect(weighted[0].fusedScore).toBeCloseTo(expected, 6);
+    });
+
+    it("equal weights produce identical scores to default", () => {
+      const semantic = [makeScoredChunk(1, 0.9), makeScoredChunk(2, 0.8)];
+      const keyword = [makeScoredChunk(2, 0, 1.0)];
+
+      const defaultResult = fuseResults(semantic, keyword, 10);
+      const explicitResult = fuseResults(semantic, keyword, 10, {
+        semantic: 1.0,
+        keyword: 1.0,
+      });
+
+      expect(defaultResult.length).toBe(explicitResult.length);
+      for (let i = 0; i < defaultResult.length; i++) {
+        expect(defaultResult[i].fusedScore).toBeCloseTo(explicitResult[i].fusedScore, 10);
       }
     });
   });

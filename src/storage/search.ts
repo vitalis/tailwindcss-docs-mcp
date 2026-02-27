@@ -1,5 +1,6 @@
 import type { Embedder } from "../pipeline/embedder.js";
 import type { TailwindVersion } from "../utils/config.js";
+import { expandQuery } from "../utils/query-expansion.js";
 import { cosineSimilarity } from "../utils/similarity.js";
 import { type ChunkRow, type Database, blobToEmbedding } from "./database.js";
 
@@ -27,7 +28,7 @@ export function invalidateChunkCache(version?: TailwindVersion): void {
 
 /** Multiplier applied to the requested limit for each search strategy.
  *  Fetching more candidates from each strategy improves fusion quality. */
-const CANDIDATE_MULTIPLIER = 2;
+const CANDIDATE_MULTIPLIER = 3;
 
 /** Standard RRF constant. Higher values reduce the impact of rank differences. */
 const RRF_K = 60;
@@ -71,6 +72,15 @@ export interface ScoredChunk {
 }
 
 /**
+ * Weights for reciprocal rank fusion.
+ * Default 1.0/1.0 produces standard unweighted RRF.
+ */
+export interface FusionWeights {
+  semantic: number;
+  keyword: number;
+}
+
+/**
  * Perform hybrid semantic + keyword search across indexed documentation.
  *
  * Strategy:
@@ -86,6 +96,9 @@ export async function hybridSearch(
   const { query, version, limit = 5 } = options;
 
   if (!query.trim()) return [];
+
+  // Expand query: map class prefixes to CSS property names (e.g., text-lg → font size)
+  const expandedQuery = expandQuery(query);
 
   let chunks = chunkCache.get(version);
   if (!chunks) {
@@ -104,11 +117,17 @@ export async function hybridSearch(
   // semanticSearch for uniform destructuring. No performance impact — sync
   // functions in Promise.all resolve in the same microtask.
   const [semantic, keyword] = await Promise.all([
-    semanticSearch(embedder, chunks, query, fetchLimit),
-    keywordSearch(db, query, version, fetchLimit),
+    semanticSearch(embedder, chunks, expandedQuery, fetchLimit),
+    keywordSearch(db, expandedQuery, version, fetchLimit),
   ]);
 
-  const fused = fuseResults(semantic, keyword, limit);
+  // Boost keyword weight when query contains Tailwind class names (e.g., text-lg, pt-6)
+  const hasClassNames = /\b[a-z]+(?:-[a-z0-9]+)+\b/.test(query);
+  const weights: FusionWeights = hasClassNames
+    ? { semantic: 1.0, keyword: 1.5 }
+    : { semantic: 1.0, keyword: 1.0 };
+
+  const fused = fuseResults(semantic, keyword, limit, weights);
 
   // Normalize fused scores to 0-1 range (top result = 1.0)
   const maxScore = fused[0]?.fusedScore ?? 1;
@@ -186,20 +205,21 @@ export function keywordSearch(
  * Uses reciprocal rank fusion (RRF) to combine results from
  * both search strategies, deduplicating by chunk ID.
  *
- * Formula: score = 1/(k + rank_semantic) + 1/(k + rank_keyword)
- * where k = 60 (standard RRF constant)
+ * Formula: score = w_s * 1/(k + rank_semantic) + w_k * 1/(k + rank_keyword)
+ * where k = 60 (standard RRF constant), w_s/w_k = strategy weights
  */
 export function fuseResults(
   semanticResults: ScoredChunk[],
   keywordResults: ScoredChunk[],
   limit: number,
+  weights: FusionWeights = { semantic: 1.0, keyword: 1.0 },
 ): ScoredChunk[] {
   const chunkMap = new Map<number, ScoredChunk>();
 
   // Assign semantic RRF scores (1-indexed ranks)
   for (let i = 0; i < semanticResults.length; i++) {
     const rank = i + 1;
-    const rrf = 1 / (RRF_K + rank);
+    const rrf = weights.semantic * (1 / (RRF_K + rank));
     const { chunk } = semanticResults[i];
     const entry: ScoredChunk = chunkMap.get(chunk.id) ?? {
       chunk,
@@ -215,7 +235,7 @@ export function fuseResults(
   // Assign keyword RRF scores
   for (let i = 0; i < keywordResults.length; i++) {
     const rank = i + 1;
-    const rrf = 1 / (RRF_K + rank);
+    const rrf = weights.keyword * (1 / (RRF_K + rank));
     const { chunk } = keywordResults[i];
     const entry: ScoredChunk = chunkMap.get(chunk.id) ?? {
       chunk,
