@@ -1,22 +1,16 @@
 # tailwindcss-docs-mcp
 
-[![npm](https://img.shields.io/npm/v/tailwindcss-docs-mcp)](https://www.npmjs.com/package/tailwindcss-docs-mcp)
+[![npm version](https://img.shields.io/npm/v/tailwindcss-docs-mcp)](https://www.npmjs.com/package/tailwindcss-docs-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/tailwindcss-docs-mcp)](https://www.npmjs.com/package/tailwindcss-docs-mcp)
 [![license](https://img.shields.io/npm/l/tailwindcss-docs-mcp)](LICENSE)
 
-Local semantic search over the Tailwind CSS docs for AI assistants. Runs entirely on your machine — no API keys, no external services.
+LLMs hallucinate Tailwind classes. This MCP server fixes that.
 
-## Highlights
+It downloads the official Tailwind CSS docs, embeds them locally with a 22M-param model, and gives your AI assistant hybrid search over the real documentation. No API keys, no external services, everything on your machine.
 
-- **Hybrid search** — semantic vectors + full-text keywords, fused with reciprocal rank fusion
-- **Understands class names** — `text-lg` resolves to "font size", `mx-auto` to "margin"
-- **Tailwind v3 + v4** — both versions indexed and searchable
-- **Fully local** — 22M-param ONNX embeddings, SQLite storage, nothing leaves your machine
-- **Just Node.js 18+** — no Ollama, no Python, no database setup
+## Quick start
 
-## Getting started
-
-Install by adding to your MCP client config:
+Add to your MCP client config and you're done:
 
 ```json
 {
@@ -31,13 +25,12 @@ Install by adding to your MCP client config:
 
 Then tell your assistant:
 
-1. _"Fetch the Tailwind CSS docs"_ — indexes the documentation (one-time)
-2. _"How do I center a div with Tailwind?"_ — searches the local index
+> "Fetch the Tailwind CSS docs"
 
-The embedding model (~27 MB) downloads on first boot. The server is ready in about 30 seconds.
+That indexes the documentation once. After that, every Tailwind question hits the local index.
 
 <details>
-<summary><b>Claude Code</b></summary><br>
+<summary><strong>Claude Code</strong></summary>
 
 ```bash
 claude mcp add tailwindcss-docs-mcp -- npx -y tailwindcss-docs-mcp
@@ -46,9 +39,9 @@ claude mcp add tailwindcss-docs-mcp -- npx -y tailwindcss-docs-mcp
 </details>
 
 <details>
-<summary><b>VS Code</b></summary><br>
+<summary><strong>VS Code</strong></summary>
 
-Add to `settings.json`:
+Add to your `settings.json`:
 
 ```json
 {
@@ -66,9 +59,9 @@ Add to `settings.json`:
 </details>
 
 <details>
-<summary><b>Cursor / Windsurf</b></summary><br>
+<summary><strong>Cursor / Windsurf</strong></summary>
 
-Add to `.mcp.json` in your project root:
+Add `.mcp.json` to your project root:
 
 ```json
 {
@@ -84,7 +77,7 @@ Add to `.mcp.json` in your project root:
 </details>
 
 <details>
-<summary><b>Using Tailwind v3?</b></summary><br>
+<summary><strong>Tailwind v3</strong></summary>
 
 ```json
 {
@@ -100,35 +93,35 @@ Add to `.mcp.json` in your project root:
 
 </details>
 
+## Why this exists
+
+AI coding assistants confidently generate Tailwind classes that don't exist, mix up v3 and v4 syntax, and miss utilities that would solve the problem in one class. This server gives them the actual docs to search instead of guessing.
+
+## Features
+
+- **Hybrid search** -- semantic vectors + FTS5 keywords, merged with reciprocal rank fusion
+- **Query expansion** -- understands class names (`text-lg` resolves to "font size", `mx-auto` to "margin")
+- **Tailwind v3 + v4** -- both versions indexed and searchable independently
+- **Fully local** -- ONNX embeddings (snowflake-arctic-embed-xs, 384 dims), SQLite storage, zero network calls at search time
+- **Incremental indexing** -- SHA-256 per chunk, only re-embeds what changed
+- **Zero config** -- just `npx` and go. Requires Node.js 18+, nothing else
+
 ## Tools
 
-The server exposes four MCP tools:
-
-- **`search_docs`** — hybrid semantic + keyword search over indexed documentation
-- **`fetch_docs`** — download and index docs (once per version; `force: true` to refresh)
-- **`list_utilities`** — browse utility categories (Layout, Spacing, Typography, etc.)
-- **`check_status`** — embedding model status, index state, last updated time
+| Tool             | What it does                                                            |
+| ---------------- | ----------------------------------------------------------------------- |
+| `search_docs`    | Hybrid semantic + keyword search. Params: `query`, `version`, `limit`   |
+| `fetch_docs`     | Download and index docs. Run once per version, `force: true` to refresh |
+| `list_utilities` | Browse utility categories (Layout, Spacing, Typography, ...)            |
+| `check_status`   | Index state, model status, last updated                                 |
 
 All tools accept an optional `version` parameter (`"v3"` or `"v4"`, defaults to `"v4"`).
 
-<details>
-<summary><b>Parameter reference</b></summary><br>
-
-**search_docs** — `query` (string, required), `version` (string), `limit` (number, 1-20, default 5)
-
-**fetch_docs** — `version` (string), `force` (boolean, default false)
-
-**list_utilities** — `category` (string), `version` (string)
-
-**check_status** — `version` (string)
-
-</details>
-
 ## How it works
 
-Documentation is fetched from the [tailwindcss.com](https://github.com/tailwindlabs/tailwindcss.com) GitHub repo, parsed from MDX, split into chunks by heading hierarchy (~500 tokens each, code blocks kept intact), and embedded with [`snowflake-arctic-embed-xs`](https://huggingface.co/Snowflake/snowflake-arctic-embed-xs) (384 dims, ONNX). Everything is stored in a local SQLite database with FTS5.
+MDX files are fetched from the [tailwindcss.com](https://github.com/tailwindlabs/tailwindcss.com) repo, chunked by heading hierarchy (~500 tokens, code blocks intact), and embedded with [snowflake-arctic-embed-xs](https://huggingface.co/Snowflake/snowflake-arctic-embed-xs) via ONNX. Chunks and vectors go into SQLite with FTS5.
 
-Search runs semantic cosine similarity and FTS5 keyword matching in parallel, then merges results with reciprocal rank fusion. Queries containing Tailwind class names (like `px-4` or `grid-cols-3`) get automatic keyword boosting.
+At search time, cosine similarity and FTS5 run in parallel. Results are merged with reciprocal rank fusion. Queries containing Tailwind class names get automatic keyword boosting.
 
 ## Configuration
 
@@ -137,29 +130,32 @@ Search runs semantic cosine similarity and FTS5 keyword matching in parallel, th
 | `TAILWIND_DOCS_MCP_DEFAULT_VERSION` | `v4`                      | Default Tailwind version |
 | `TAILWIND_DOCS_MCP_PATH`            | `~/.tailwindcss-docs-mcp` | Data directory           |
 
+## First run
+
+The embedding model (~27 MB) downloads automatically on first boot and takes about 30 seconds. The server starts immediately -- tools return a status message until the model is ready. After that, the model loads from cache instantly.
+
 ## Troubleshooting
 
-- **"Embedding model is initializing"** — Model is still downloading. Wait ~30 seconds.
-- **"Index not built for this version"** — Run `fetch_docs` first.
-- **Wrong version results** — Set `TAILWIND_DOCS_MCP_DEFAULT_VERSION` in your MCP config.
+| Message                            | Fix                                                     |
+| ---------------------------------- | ------------------------------------------------------- |
+| "Embedding model is initializing"  | Model still downloading. Wait ~30 seconds.              |
+| "Index not built for this version" | Tell your assistant to fetch the docs first.            |
+| Wrong version results              | Set `TAILWIND_DOCS_MCP_DEFAULT_VERSION` in your config. |
 
 ## Development
 
 ```bash
-git clone https://github.com/vitalis/tailwindcss-docs-mcp.git && cd tailwindcss-docs-mcp
+git clone https://github.com/vitalis/tailwindcss-docs-mcp.git
+cd tailwindcss-docs-mcp
 bun install
-bun run test            # Vitest
-bun run build           # TypeScript
-bunx biome check src/   # Lint
+bun run test            # vitest
+bun run build           # tsc
+bunx biome check src/   # lint
 ```
-
-## Contributing
-
-Contributions welcome — [open an issue](https://github.com/vitalis/tailwindcss-docs-mcp/issues) to discuss before submitting a PR.
 
 ## Acknowledgments
 
-Inspired by [HexDocs MCP](https://github.com/bradleygolden/hexdocs-mcp) for Elixir documentation.
+Inspired by [HexDocs MCP](https://github.com/bradleygolden/hexdocs-mcp).
 
 ## License
 
