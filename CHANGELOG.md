@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.1.0...v1.2.0) (2026-02-27)
+
+
+### Features
+
+* auto-index documentation on startup ([fb7e4ae](https://github.com/vitalis/tailwindcss-docs-mcp/commit/fb7e4ae59f6dbcdc4c1bbe8f19a751d83126ff9e))
+
+
+### Reverts
+
+* remove smithery support (stdio deprecated) ([#7](https://github.com/vitalis/tailwindcss-docs-mcp/issues/7)) ([68341e2](https://github.com/vitalis/tailwindcss-docs-mcp/commit/68341e295bbd778f7468e94a6797793d7f61c583))
+
 ## [1.1.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.0.2...v1.1.0) (2026-02-27)
 
 
