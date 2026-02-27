@@ -7,7 +7,10 @@ import type { Embedder } from "./pipeline/embedder.js";
 import type { Database } from "./storage/database.js";
 import { handleCheckStatus } from "./tools/check-status.js";
 import { handleFetchDocs } from "./tools/fetch-docs.js";
-import { formatUtilitiesList, handleListUtilities } from "./tools/list-utilities.js";
+import {
+  formatUtilitiesList,
+  handleListUtilities,
+} from "./tools/list-utilities.js";
 import { formatSearchResults, handleSearchDocs } from "./tools/search-docs.js";
 import type { Config } from "./utils/config.js";
 
@@ -53,8 +56,10 @@ export interface ServerHandle {
 }
 
 export const EMBEDDER_STATUS_MESSAGES: Record<EmbedderStatus, string> = {
-  pending: "Embedding model is initializing. Please wait a moment and try again.",
-  downloading: "Embedding model is downloading (~27 MB). Please wait and try again.",
+  pending:
+    "Embedding model is initializing. Please wait a moment and try again.",
+  downloading:
+    "Embedding model is downloading (~27 MB). Please wait and try again.",
   ready: "Embedding model is ready.",
   failed: "Embedding model failed to load. Check server logs for details.",
 };
@@ -66,7 +71,10 @@ export const EMBEDDER_STATUS_MESSAGES: Record<EmbedderStatus, string> = {
  * Tools that require the embedder (fetch_docs, search_docs) will throw
  * an error if called before the model has finished loading.
  */
-export async function createServer(deps: ServerDeps, transport?: Transport): Promise<ServerHandle> {
+export async function createServer(
+  deps: ServerDeps,
+  transport?: Transport,
+): Promise<ServerHandle> {
   const { config, db } = deps;
   let embedder: Embedder | null = deps.embedder;
   let embedderStatus: EmbedderStatus = deps.embedder ? "ready" : "pending";
@@ -96,15 +104,25 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
     TOOL_NAMES.FETCH_DOCS,
     "Download and index Tailwind CSS documentation for local semantic search. Only needs to be run once per version. Re-run with force=true to refresh.",
     {
-      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v4)"),
+      version: z
+        .enum(["v4", "v3"])
+        .optional()
+        .describe("Tailwind CSS major version (default: v4)"),
       force: z
         .boolean()
         .optional()
-        .describe("Force re-download and re-index even if already cached (default: false)"),
+        .describe(
+          "Force re-download and re-index even if already cached (default: false)",
+        ),
     },
     async (params) => {
       try {
-        const result = await handleFetchDocs(params, config, db, requireEmbedder());
+        const result = await handleFetchDocs(
+          params,
+          config,
+          db,
+          requireEmbedder(),
+        );
         return { content: [{ type: "text" as const, text: result.message }] };
       } catch (error) {
         return toolError(error);
@@ -135,7 +153,12 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
     },
     async (params) => {
       try {
-        const result = await handleSearchDocs(params, db, requireEmbedder(), config.defaultVersion);
+        const result = await handleSearchDocs(
+          params,
+          db,
+          requireEmbedder(),
+          config.defaultVersion,
+        );
         const text = formatSearchResults(result);
         return { content: [{ type: "text" as const, text }] };
       } catch (error) {
@@ -155,7 +178,10 @@ export async function createServer(deps: ServerDeps, transport?: Transport): Pro
         .describe(
           "Filter by category (e.g., 'Layout', 'Spacing', 'Typography', 'Flexbox & Grid'). Omit to list all categories.",
         ),
-      version: z.enum(["v3", "v4"]).optional().describe("Tailwind CSS major version (default: v4)"),
+      version: z
+        .enum(["v4", "v3"])
+        .optional()
+        .describe("Tailwind CSS major version (default: v4)"),
     },
     (params) => {
       try {
