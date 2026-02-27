@@ -44,6 +44,11 @@ describe("Query Expansion", () => {
       expect(result).toContain("padding");
     });
 
+    it("expands p-4 to include padding", () => {
+      const result = expandQuery("p-4 class");
+      expect(result).toContain("padding");
+    });
+
     // ── Grid expansions ──────────────────────────────────────────
     it("expands grid-cols-3 to include grid template columns", () => {
       const result = expandQuery("grid-cols-3 tailwind grid");
