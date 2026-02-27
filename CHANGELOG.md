@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.0.1...v1.0.2) (2026-02-27)
+
+
+### Bug Fixes
+
+* list v4 first in tool schema enums to fix LLM default ([ca63789](https://github.com/vitalis/tailwindcss-docs-mcp/commit/ca63789bb2b7ef2436389258d791a7677820476d))
+
 ## [1.0.1](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.0.0...v1.0.1) (2026-02-27)
 
 
