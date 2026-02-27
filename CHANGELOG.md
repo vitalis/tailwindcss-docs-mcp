@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.3.0...v1.4.0) (2026-02-27)
+
+
+### Features
+
+* show server version in check_status output ([#16](https://github.com/vitalis/tailwindcss-docs-mcp/issues/16)) ([33918f1](https://github.com/vitalis/tailwindcss-docs-mcp/commit/33918f160e7e38e2b307517e35e96e929208ee19))
+
 ## [1.3.0](https://github.com/vitalis/tailwindcss-docs-mcp/compare/v1.2.0...v1.3.0) (2026-02-27)
 
 
