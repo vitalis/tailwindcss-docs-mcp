@@ -1,6 +1,6 @@
 import type { Embedder } from "../pipeline/embedder.js";
 import type { TailwindVersion } from "../utils/config.js";
-import { expandQuery } from "../utils/query-expansion.js";
+import { TAILWIND_CLASS_RE, expandQuery } from "../utils/query-expansion.js";
 import { cosineSimilarity } from "../utils/similarity.js";
 import { type ChunkRow, type Database, blobToEmbedding } from "./database.js";
 
@@ -125,7 +125,8 @@ export async function hybridSearch(
   ]);
 
   // Boost keyword weight when query contains Tailwind class names (e.g., text-lg, pt-6, -mx-4)
-  const hasClassNames = /\b-?[a-z]+(?:-[a-z0-9]+)+\b/.test(query);
+  const hasClassNames = TAILWIND_CLASS_RE.test(query);
+  TAILWIND_CLASS_RE.lastIndex = 0; // Reset global regex state after .test()
   const weights: FusionWeights = hasClassNames
     ? { semantic: 1.0, keyword: 1.5 }
     : { semantic: 1.0, keyword: 1.0 };

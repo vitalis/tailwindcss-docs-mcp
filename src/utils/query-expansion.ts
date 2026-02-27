@@ -7,7 +7,7 @@
  */
 
 /** Regex to detect Tailwind class names: hyphenated lowercase tokens like text-lg, grid-cols-3, -mx-4 */
-const TAILWIND_CLASS_RE = /\b-?[a-z]+(?:-[a-z0-9]+)+\b/g;
+export const TAILWIND_CLASS_RE = /\b-?[a-z]+(?:-[a-z0-9]+)+\b/g;
 
 /** Font size suffixes used by Tailwind's text-{size} utilities */
 const TEXT_SIZE_RE = /^text-(xs|sm|base|lg|xl|\d+xl)$/;
@@ -50,6 +50,7 @@ const PREFIX_MAP = new Map<string, string>([
 
   // ── Single-segment prefixes ────────────────────────────────────
   // Spacing
+  ["p", "padding"],
   ["px", "padding"],
   ["py", "padding"],
   ["pt", "padding"],
