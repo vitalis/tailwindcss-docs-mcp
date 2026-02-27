@@ -1,6 +1,6 @@
 import type { Database } from "../storage/database.js";
 import { UTILITY_CATEGORIES, type UtilityCategory, findCategory } from "../utils/categories.js";
-import type { TailwindVersion } from "../utils/config.js";
+import { DOCS_BASE_URL, type TailwindVersion } from "../utils/config.js";
 
 /**
  * Input parameters for the list_utilities MCP tool.
@@ -70,7 +70,7 @@ export function handleListUtilities(
         return {
           title: doc?.title ?? slugToTitle(slug),
           description: doc?.description ?? "",
-          url: doc?.url ?? `https://tailwindcss.com/docs/${slug}`,
+          url: doc?.url ?? `${DOCS_BASE_URL}/${slug}`,
           category: cat.name,
         };
       }),

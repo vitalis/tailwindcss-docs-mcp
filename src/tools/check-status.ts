@@ -1,6 +1,6 @@
 import type { Database, IndexStatus } from "../storage/database.js";
 import type { TailwindVersion } from "../utils/config.js";
-import type { EmbedderStatus, IndexingStatus } from "../utils/types.js";
+import { type EmbedderStatus, INDEXING_MESSAGES, type IndexingStatus } from "../utils/types.js";
 
 /**
  * Input parameters for the check_status MCP tool.
@@ -73,9 +73,9 @@ export function formatStatus(
 
   if (!indexed) {
     if (indexingStatus === "indexing") {
-      lines.push("Auto-indexing in progress. This takes 1-2 minutes on first run.");
+      lines.push(INDEXING_MESSAGES.inProgress);
     } else if (indexingStatus === "failed") {
-      lines.push("Auto-indexing failed. Run fetch_docs to index manually.");
+      lines.push(INDEXING_MESSAGES.failed);
     } else {
       lines.push("Not indexed. Run fetch_docs to index Tailwind CSS documentation.");
     }

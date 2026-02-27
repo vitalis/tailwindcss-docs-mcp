@@ -2,7 +2,7 @@ import type { Embedder } from "../pipeline/embedder.js";
 import type { Database } from "../storage/database.js";
 import { type SearchResult, hybridSearch } from "../storage/search.js";
 import type { TailwindVersion } from "../utils/config.js";
-import type { IndexingStatus } from "../utils/types.js";
+import { INDEXING_MESSAGES, type IndexingStatus } from "../utils/types.js";
 
 /**
  * Input parameters for the search_docs MCP tool.
@@ -76,7 +76,7 @@ export function formatSearchResults(
       return "Documentation is being indexed automatically. This takes 1-2 minutes on first run. Please wait a moment and try again.";
     }
     if (indexingStatus === "failed") {
-      return "Auto-indexing failed. Run fetch_docs to index manually.";
+      return INDEXING_MESSAGES.failed;
     }
     return "Index not built for this version. Run fetch_docs to index.";
   }

@@ -46,6 +46,11 @@ export const VERSION_DOCS_PATH: Record<TailwindVersion, string> = {
 };
 
 /**
+ * Base URL for Tailwind CSS documentation pages.
+ */
+export const DOCS_BASE_URL = "https://tailwindcss.com/docs";
+
+/**
  * GitHub repository details for Tailwind CSS documentation.
  */
 export const GITHUB_REPO = {
